@@ -20,18 +20,20 @@ Build a single Rust binary that:
 │   (Main)    │
 └──────┬──────┘
        │
-       ├─ Calls Skill: local-context-optimiser
+       ├─ Passes file path(s) + metadata
        │
        ▼
 ┌─────────────────┐
 │   Subagent      │
-│  (Haiku 4.5)    │ ◄── Uses Skill to call binary
+│  (Haiku 4.5)    │ ◄── Reads file(s) using Read tool
 └────────┬────────┘
+         │
+         ├─ Builds JSON with document content
          │
          ▼
 ┌─────────────────────────┐
 │  Rust Binary            │
-│  local-context-optimizer│
+│  local-context-optimizer│ ◄── Receives document via stdin
 └────────┬────────────────┘
          │
          ▼
@@ -40,6 +42,12 @@ Build a single Rust binary that:
 │  (Local Model)  │
 └─────────────────┘
 ```
+
+**Key Flow**:
+1. Main conversation passes **file paths** (not content) to keep context lightweight
+2. Subagent uses Read tool to fetch file content
+3. Subagent builds JSON payload and pipes to binary
+4. Binary processes content with Ollama and returns structured review
 
 ---
 
@@ -332,13 +340,14 @@ This skill performs structured reviews of documents using a local Ollama model.
 - User wants to analyze a document for improvements
 - User needs to identify areas to refactor, simplify, or defer
 
-## How to Use
-1. Collect the document text (from user or via Read tool)
-2. Determine metadata (kind, name, review_focus)
-3. Build InputPayload JSON
-4. Run: `echo '<json>' | local-context-optimizer`
-5. Parse JSON output
-6. Present categorized results to user
+## How to Use (for Subagents)
+1. Receive file path(s) from main conversation
+2. Use Read tool to fetch document content
+3. Determine metadata (kind, name, review_focus)
+4. Build InputPayload JSON with document content
+5. Run: `echo '<json>' | local-context-optimizer`
+6. Parse JSON output
+7. Return concise, human-friendly summary to main conversation
 
 ## Categories Explained
 - **spikes**: Areas requiring investigation or refactoring
@@ -348,8 +357,14 @@ This skill performs structured reviews of documents using a local Ollama model.
 
 ## Example
 ```bash
-echo '{"document":"...","meta":{"kind":"code","name":"auth.rs","review_focus":"refactoring"}}' | local-context-optimizer
+# Subagent reads the file first, then:
+echo '{"document":"<file-content>","meta":{"kind":"code","name":"auth.rs","review_focus":"refactoring"}}' | local-context-optimizer
 ```
+
+## Important
+- Main conversation passes **file paths only**, not content
+- Subagent does the heavy lifting of reading files
+- This keeps the main conversation context lightweight
 ```
 
 ### Subagent: review-optimiser
@@ -363,25 +378,35 @@ echo '{"document":"...","meta":{"kind":"code","name":"auth.rs","review_focus":"r
 - Read (to fetch documents)
 
 **Behavior**:
-1. Clarify which document to review and review focus
-2. Read the document if needed
-3. Call the local-context-optimiser Skill (which calls the Rust binary)
-4. Interpret the JSON review
-5. Return a concise, human-friendly summary to main conversation
-6. Suggest next steps based on review findings
+1. Receive file path(s) and review focus from main conversation
+2. Use Read tool to fetch document content
+3. Build JSON payload with document content and metadata
+4. Call the local-context-optimiser Skill (which pipes JSON to Rust binary)
+5. Interpret the JSON review from binary output
+6. Return a concise, human-friendly summary to main conversation
+7. Suggest next steps based on review findings
 
 **Prompt Example**:
 ```
 You are a review assistant that helps analyze documents using a local LLM.
 
-When asked to review a document:
-1. Determine the document path and review focus
-2. Use the Read tool to get the document content
-3. Use the local-context-optimiser skill to get structured review
-4. Present the review in a clear, actionable format
-5. Suggest priorities based on the findings
+Your role:
+- Receive file path(s) from the main conversation (NOT file content)
+- Use the Read tool to fetch file content yourself
+- Build the JSON payload with the document content
+- Call the local-context-optimiser skill to run the binary
+- Interpret the structured JSON review (spikes, simplifications, defer_for_later, other_observations)
+- Return a clear, actionable summary to the main conversation
 
-Always keep responses concise and focused on actionable insights.
+Workflow:
+1. Get file path and review focus from main conversation
+2. Read the file(s) using the Read tool
+3. Build JSON: {"document": "<content>", "meta": {"kind": "...", "name": "...", "review_focus": "..."}}
+4. Call skill: echo '<json>' | local-context-optimizer
+5. Parse JSON output and present in human-friendly format
+6. Suggest priorities and next steps
+
+Keep responses concise and actionable. You handle the context so the main conversation stays lightweight.
 ```
 
 ---
@@ -608,17 +633,24 @@ ollama list
 
 ### End-to-End Example
 
-**User Request**:
+**User Request (Main Conversation)**:
 ```
 Can you review src/auth.rs for refactoring opportunities?
 ```
 
+**Main Conversation → Subagent**:
+```
+Passes: file_path="src/auth.rs", review_focus="refactoring"
+(NOTE: Main conversation does NOT pass file content, just the path)
+```
+
 **Subagent Actions**:
-1. Reads `src/auth.rs`
-2. Builds input JSON:
+1. Receives file path from main conversation
+2. Uses Read tool to fetch `src/auth.rs` content
+3. Builds input JSON:
 ```json
 {
-  "document": "// auth.rs content here...",
+  "document": "// Full auth.rs content here...",
   "meta": {
     "kind": "code",
     "name": "auth.rs",
@@ -626,8 +658,8 @@ Can you review src/auth.rs for refactoring opportunities?
   }
 }
 ```
-3. Calls binary: `echo '<json>' | local-context-optimizer`
-4. Receives output:
+4. Calls binary: `echo '<json>' | local-context-optimizer`
+5. Receives output:
 ```json
 {
   "spikes": [
@@ -655,9 +687,9 @@ Can you review src/auth.rs for refactoring opportunities?
   ]
 }
 ```
-5. Presents to user in friendly format
+6. Interprets results and prepares human-friendly summary
 
-**User Sees**:
+**Subagent → Main Conversation (Response)**:
 ```
 Review of src/auth.rs (focus: refactoring)
 
@@ -680,6 +712,13 @@ Review of src/auth.rs (focus: refactoring)
 Would you like me to start refactoring any of these areas?
 ```
 
+**Key Benefits of This Flow**:
+- Main conversation stays lightweight (only passes paths, not content)
+- Subagent handles all heavy context work (reading files, building JSON)
+- User never sees raw JSON or binary interaction details
+- Cost-effective: Haiku 4.5 subagent handles the expensive operations
+- Scalable: Easy to review multiple files by passing multiple paths
+
 ---
 
 ## Conclusion
@@ -688,7 +727,9 @@ This plan provides a clear path to building a focused, efficient document review
 
 **Key Principles**:
 - Keep v1 simple and focused
-- Clear interfaces (JSON in/out)
+- Clear interfaces (JSON in/out for binary)
+- Path-based flow keeps main conversation lightweight
+- Subagent handles context-heavy operations
 - Robust error handling
 - Easy to test and debug
 - Extensible for future enhancements
