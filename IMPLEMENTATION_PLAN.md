@@ -17,7 +17,7 @@ Build a single Rust binary that:
 ```
 ┌─────────────┐
 │ Claude Code │
-│   (Main)    │
+│   (Main)    │  ◄── Minimal context: just passes path
 └──────┬──────┘
        │
        ├─ Passes file path(s) + metadata
@@ -25,15 +25,18 @@ Build a single Rust binary that:
        ▼
 ┌─────────────────┐
 │   Subagent      │
-│  (Haiku 4.5)    │ ◄── Reads file(s) using Read tool
+│  (Haiku 4.5)    │  ◄── Minimal context: just passes path through
 └────────┬────────┘
          │
-         ├─ Builds JSON with document content
+         ├─ Passes path + metadata as JSON
          │
          ▼
 ┌─────────────────────────┐
 │  Rust Binary            │
-│  local-context-optimizer│ ◄── Receives document via stdin
+│  local-context-optimizer│  ◄── Heavy lifting: reads file, calls Ollama
+│  - Reads file           │
+│  - Calls Ollama         │
+│  - Returns review       │
 └────────┬────────────────┘
          │
          ▼
@@ -44,10 +47,17 @@ Build a single Rust binary that:
 ```
 
 **Key Flow**:
-1. Main conversation passes **file paths** (not content) to keep context lightweight
-2. Subagent uses Read tool to fetch file content
-3. Subagent builds JSON payload and pipes to binary
-4. Binary processes content with Ollama and returns structured review
+1. Main conversation passes **file paths** (not content) - stays lightweight
+2. Subagent passes **file paths** (not content) to binary - stays lightweight
+3. **Binary reads the file** from disk and loads into memory
+4. Binary sends content to Ollama and returns structured review
+5. Subagent interprets review and returns human-friendly summary
+
+**Context Efficiency**:
+- Main conversation: ~100 tokens (just path + metadata)
+- Subagent: ~500 tokens (path in, review out - no file content!)
+- Binary: Full file in memory (but disposable process)
+- Result: Massive context savings across the board
 
 ---
 
@@ -61,14 +71,15 @@ local-context-optimizer
 ### Input Format (stdin)
 ```json
 {
-  "document": "full text to review",
+  "file_path": "/absolute/path/to/file.rs",
   "meta": {
     "kind": "code | design-doc | ticket | other",
-    "name": "file-or-doc-name",
     "review_focus": "refactoring | readability | performance | risk | general"
   }
 }
 ```
+
+**Note**: The binary receives a **file path**, not file content. It reads the file itself.
 
 ### Output Format (stdout)
 ```json
@@ -143,20 +154,22 @@ anyhow = "1"
 ### Input Structures
 ```rust
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 struct Meta {
     kind: Option<String>,
-    name: Option<String>,
     review_focus: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct InputPayload {
-    document: String,
+    file_path: PathBuf,
     meta: Option<Meta>,
 }
 ```
+
+**Note**: `name` is removed from meta since we can derive it from `file_path`
 
 ### Output Structures
 ```rust
@@ -185,19 +198,22 @@ struct OutputPayload {
 
 1. **Read stdin** into a string
 2. **Deserialize** to `InputPayload` using `serde_json::from_str`
-3. **Build Ollama prompt**:
+3. **Read file** from `file_path` into string
+   - Handle file not found, permission errors
+   - Extract filename from path for metadata
+4. **Build Ollama prompt**:
    - System message: explain the 4 categories and required JSON format
-   - User message: include metadata and document text
-4. **Call Ollama chat endpoint** using reqwest blocking client:
+   - User message: include metadata (kind, filename, focus) and document text
+5. **Call Ollama chat endpoint** using reqwest blocking client:
    - URL: `OLLAMA_HOST` env var or default `http://localhost:11434`
    - POST `/api/chat`
    - Body: `{ "model": "<model-name>", "messages": [...] }`
-5. **Extract response content** (single string from model)
-6. **Parse response** as JSON into `OutputPayload`
+6. **Extract response content** (single string from model)
+7. **Parse response** as JSON into `OutputPayload`
    - Handle potential text-instead-of-JSON scenarios
    - Implement cleanup if needed
-7. **Serialize** `OutputPayload` to stdout using `serde_json::to_writer`
-8. **Error handling**: On error, print clear message to stderr and exit with non-zero code
+8. **Serialize** `OutputPayload` to stdout using `serde_json::to_writer`
+9. **Error handling**: On error, print clear message to stderr and exit with non-zero code
 
 ### Pseudocode
 ```rust
@@ -209,16 +225,26 @@ fn main() -> Result<(), anyhow::Error> {
     // 2. Deserialize input
     let payload: InputPayload = serde_json::from_str(&input)?;
 
-    // 3. Build prompt
-    let (system_msg, user_msg) = build_prompt(&payload)?;
+    // 3. Read file from disk
+    let document = fs::read_to_string(&payload.file_path)
+        .context("Failed to read file")?;
 
-    // 4. Call Ollama
+    // Extract filename for metadata
+    let filename = payload.file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+
+    // 4. Build prompt
+    let (system_msg, user_msg) = build_prompt(&document, filename, &payload.meta)?;
+
+    // 5. Call Ollama
     let response = call_ollama(system_msg, user_msg)?;
 
-    // 5. Parse response
+    // 6. Parse response
     let output: OutputPayload = parse_ollama_response(&response)?;
 
-    // 6. Write to stdout
+    // 7. Write to stdout
     serde_json::to_writer(io::stdout(), &output)?;
 
     Ok(())
@@ -308,12 +334,11 @@ You receive a document and metadata, and must produce a structured review.
 
 ### User Prompt Template
 ```
-**Metadata**:
-- Kind: {kind}
-- Name: {name}
-- Review Focus: {review_focus}
+**File**: {filename}
+**Kind**: {kind}
+**Review Focus**: {review_focus}
 
-**Document**:
+**Document Content**:
 {document_text}
 
 Provide your structured review as JSON only.
@@ -342,10 +367,10 @@ This skill performs structured reviews of documents using a local Ollama model.
 
 ## How to Use (for Subagents)
 1. Receive file path(s) from main conversation
-2. Use Read tool to fetch document content
-3. Determine metadata (kind, name, review_focus)
-4. Build InputPayload JSON with document content
-5. Run: `echo '<json>' | local-context-optimizer`
+2. Determine metadata (kind, review_focus) from context or user request
+3. Build InputPayload JSON with **file path** (not content!)
+4. Run: `echo '<json>' | local-context-optimizer`
+5. Binary reads file, calls Ollama, returns review
 6. Parse JSON output
 7. Return concise, human-friendly summary to main conversation
 
@@ -357,14 +382,15 @@ This skill performs structured reviews of documents using a local Ollama model.
 
 ## Example
 ```bash
-# Subagent reads the file first, then:
-echo '{"document":"<file-content>","meta":{"kind":"code","name":"auth.rs","review_focus":"refactoring"}}' | local-context-optimizer
+# Subagent just passes the path - binary does the reading!
+echo '{"file_path":"src/auth.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | local-context-optimizer
 ```
 
 ## Important
-- Main conversation passes **file paths only**, not content
-- Subagent does the heavy lifting of reading files
-- This keeps the main conversation context lightweight
+- **Main conversation**: passes file paths only (minimal context)
+- **Subagent**: passes file paths to binary (minimal context)
+- **Binary**: reads files and calls Ollama (heavy lifting)
+- This keeps BOTH main and subagent contexts lightweight
 ```
 
 ### Subagent: review-optimiser
@@ -379,12 +405,13 @@ echo '{"document":"<file-content>","meta":{"kind":"code","name":"auth.rs","revie
 
 **Behavior**:
 1. Receive file path(s) and review focus from main conversation
-2. Use Read tool to fetch document content
-3. Build JSON payload with document content and metadata
+2. Determine file kind from extension or context (code, design-doc, etc.)
+3. Build JSON payload with **file path only** (no reading!)
 4. Call the local-context-optimiser Skill (which pipes JSON to Rust binary)
-5. Interpret the JSON review from binary output
-6. Return a concise, human-friendly summary to main conversation
-7. Suggest next steps based on review findings
+5. Binary reads file and calls Ollama (subagent waits for result)
+6. Interpret the JSON review from binary output
+7. Return a concise, human-friendly summary to main conversation
+8. Suggest next steps based on review findings
 
 **Prompt Example**:
 ```
@@ -392,21 +419,23 @@ You are a review assistant that helps analyze documents using a local LLM.
 
 Your role:
 - Receive file path(s) from the main conversation (NOT file content)
-- Use the Read tool to fetch file content yourself
-- Build the JSON payload with the document content
-- Call the local-context-optimiser skill to run the binary
-- Interpret the structured JSON review (spikes, simplifications, defer_for_later, other_observations)
+- Build JSON payload with the file path (DO NOT read the file yourself!)
+- Call the local-context-optimiser skill which runs a Rust binary
+- The binary handles all file reading and Ollama interaction
+- Interpret the structured JSON review you receive back
 - Return a clear, actionable summary to the main conversation
 
 Workflow:
 1. Get file path and review focus from main conversation
-2. Read the file(s) using the Read tool
-3. Build JSON: {"document": "<content>", "meta": {"kind": "...", "name": "...", "review_focus": "..."}}
+2. Determine file kind from extension (e.g., .rs -> code, .md -> design-doc)
+3. Build JSON: {"file_path": "/path/to/file", "meta": {"kind": "...", "review_focus": "..."}}
 4. Call skill: echo '<json>' | local-context-optimizer
-5. Parse JSON output and present in human-friendly format
-6. Suggest priorities and next steps
+5. Wait for binary to read file, call Ollama, and return review JSON
+6. Parse JSON output and present in human-friendly format
+7. Suggest priorities and next steps
 
-Keep responses concise and actionable. You handle the context so the main conversation stays lightweight.
+IMPORTANT: Never use the Read tool to fetch file content - the binary does this!
+Keep responses concise and actionable. Your context stays minimal because you never load the file.
 ```
 
 ---
@@ -454,22 +483,33 @@ Keep responses concise and actionable. You handle the context so the main conver
 
 ### Manual Testing
 ```bash
-# Test 1: Basic functionality
+# Test 1: Basic functionality with real file
 echo '{
-  "document": "fn main() { println!(\"Hello\"); }",
+  "file_path": "/tmp/test.rs",
   "meta": {
     "kind": "code",
-    "name": "main.rs",
     "review_focus": "refactoring"
   }
-}' | local-context-optimizer
+}' > /tmp/test_input.json
+
+# Create test file
+echo 'fn main() { println!("Hello"); }' > /tmp/test.rs
+
+# Run binary
+cat /tmp/test_input.json | local-context-optimizer
 
 # Test 2: Minimal input
 echo '{
-  "document": "Some text"
+  "file_path": "/tmp/test.rs"
 }' | local-context-optimizer
 
-# Test 3: Invalid JSON (should fail gracefully)
+# Test 3: File not found (should fail gracefully)
+echo '{
+  "file_path": "/nonexistent/file.rs",
+  "meta": {"kind": "code"}
+}' | local-context-optimizer
+
+# Test 4: Invalid JSON (should fail gracefully)
 echo 'not json' | local-context-optimizer
 ```
 
@@ -645,21 +685,21 @@ Passes: file_path="src/auth.rs", review_focus="refactoring"
 ```
 
 **Subagent Actions**:
-1. Receives file path from main conversation
-2. Uses Read tool to fetch `src/auth.rs` content
-3. Builds input JSON:
+1. Receives file path from main conversation: `src/auth.rs`
+2. Determines file kind from extension: `.rs` → `code`
+3. Builds input JSON (note: just the **path**, not content!):
 ```json
 {
-  "document": "// Full auth.rs content here...",
+  "file_path": "src/auth.rs",
   "meta": {
     "kind": "code",
-    "name": "auth.rs",
     "review_focus": "refactoring"
   }
 }
 ```
 4. Calls binary: `echo '<json>' | local-context-optimizer`
-5. Receives output:
+5. Binary reads file, sends to Ollama, returns review
+6. Subagent receives output:
 ```json
 {
   "spikes": [
@@ -713,11 +753,13 @@ Would you like me to start refactoring any of these areas?
 ```
 
 **Key Benefits of This Flow**:
-- Main conversation stays lightweight (only passes paths, not content)
-- Subagent handles all heavy context work (reading files, building JSON)
-- User never sees raw JSON or binary interaction details
-- Cost-effective: Haiku 4.5 subagent handles the expensive operations
-- Scalable: Easy to review multiple files by passing multiple paths
+- **Main conversation**: Ultra lightweight (~100 tokens - just path + metadata)
+- **Subagent**: Also lightweight (~500 tokens - no file content ever loaded!)
+- **Binary**: Does ALL heavy lifting (reads file, loads into memory, calls Ollama)
+- **Cost optimization**: Haiku subagent uses minimal tokens since it never reads files
+- **Memory efficiency**: File content only exists in binary process (disposable)
+- **Scalability**: Can review many files by passing multiple paths
+- **User experience**: Clean interface, no raw JSON visible
 
 ---
 

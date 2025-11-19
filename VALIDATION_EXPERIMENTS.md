@@ -129,62 +129,92 @@ done
 
 ---
 
-### 🟡 **SPIKE 3: stdin/stdout Binary Integration**
+### 🟡 **SPIKE 3: stdin/stdout + File Reading Integration**
 **Risk Level**: MEDIUM
-**Why Critical**: Skill needs to pipe JSON to binary correctly
+**Why Critical**: Binary needs to receive path, read file, and return results
 
 **Questions**:
-- Can we pipe JSON via echo to a simple Rust binary?
-- Does JSON escaping work (quotes, newlines, backslashes)?
+- Can we pipe JSON with file paths to a Rust binary?
+- Can binary read files and handle errors gracefully?
+- Does JSON input/output work correctly?
 - Can we capture stdout correctly?
 
-**Experiment 3.1: Simple Echo Binary Test**
+**Experiment 3.1: File Reading Binary Test**
 ```bash
-# Create minimal Rust binary that echoes stdin
+# Create minimal Rust binary that reads a file path from stdin
 mkdir -p /tmp/test-binary
 cd /tmp/test-binary
-cargo init --name echo-test
+cargo init --name file-reader-test
 
-# Edit main.rs to read stdin and write stdout
+# Edit main.rs to read path from stdin, read file, echo content
 cat > src/main.rs << 'EOF'
 use std::io::{self, Read};
+use std::fs;
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize)]
+struct Input {
+    file_path: String,
+}
+
+#[derive(Serialize)]
+struct Output {
+    content: String,
+    size: usize,
+}
 
 fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
-    println!("{}", input);
+
+    let payload: Input = serde_json::from_str(&input).unwrap();
+    let content = fs::read_to_string(&payload.file_path).unwrap();
+
+    let output = Output {
+        size: content.len(),
+        content: content,
+    };
+
+    println!("{}", serde_json::to_string(&output).unwrap());
 }
 EOF
+
+# Add serde to Cargo.toml
+cargo add serde --features derive
+cargo add serde_json
 
 cargo build --release
 
-# Test piping
-echo '{"test": "value"}' | ./target/release/echo-test
+# Create test file
+echo 'fn main() { println!("test"); }' > /tmp/test.rs
+
+# Test piping path
+echo '{"file_path": "/tmp/test.rs"}' | ./target/release/file-reader-test
 ```
 
 **Success Criteria**:
-- [ ] Binary receives JSON correctly
-- [ ] Output matches input
+- [ ] Binary receives JSON with path correctly
+- [ ] Binary reads file from disk
+- [ ] Output is valid JSON with file content
 - [ ] Works from Bash tool in Claude Code
 
-**Experiment 3.2: JSON Escaping Test**
+**Experiment 3.2: File Error Handling Test**
 ```bash
-# Test with problematic characters
-cat > /tmp/test.json << 'EOF'
-{
-  "document": "function test() {\n  console.log(\"hello\");\n  return 'world';\n}",
-  "meta": {"kind": "code"}
-}
-EOF
+# Test with non-existent file
+echo '{"file_path": "/nonexistent/file.rs"}' | ./target/release/file-reader-test
 
-cat /tmp/test.json | ./target/release/echo-test
+# Test with permission denied (if applicable)
+touch /tmp/noperm.txt
+chmod 000 /tmp/noperm.txt
+echo '{"file_path": "/tmp/noperm.txt"}' | ./target/release/file-reader-test
+chmod 644 /tmp/noperm.txt  # cleanup
 ```
 
 **Success Criteria**:
-- [ ] Quotes are properly escaped
-- [ ] Newlines don't break JSON
-- [ ] Backslashes work correctly
-- [ ] Output is valid JSON
+- [ ] Graceful error messages on stderr
+- [ ] Non-zero exit codes on failure
+- [ ] No crashes or panics
+- [ ] Clear indication of what went wrong
 
 ---
 
@@ -232,17 +262,19 @@ User: Use the test-binary skill to echo some JSON
 - Can we invoke a subagent with specific tools?
 - Can subagent use Skills?
 - Does the path-based flow work as intended?
+- Does subagent stay lightweight when passing paths (not reading files)?
 
 **Experiment 5.1: Simple Subagent Test**
 ```
-Main conversation: Launch a Haiku subagent to read a file and report its size
+Main conversation: Launch a Haiku subagent to pass a file path to a test binary
+(NOT to read the file - just to call the binary with a path)
 ```
 
 **Success Criteria**:
 - [ ] Subagent launches successfully
-- [ ] Can use Read tool
+- [ ] Can execute bash commands or Skills
 - [ ] Returns result to main conversation
-- [ ] Uses less context than main doing it
+- [ ] Subagent context stays minimal (doesn't load file content)
 
 ---
 
@@ -283,11 +315,11 @@ done
 **Go/No-Go Decision**: If JSON output is unreliable, stop and pivot strategy
 
 ### Phase 2: Integration (Do Second)
-4. **Experiment 3.1**: Simple Binary Test - 20 min
-5. **Experiment 3.2**: JSON Escaping Test - 15 min
+4. **Experiment 3.1**: File Reading Binary Test - 25 min
+5. **Experiment 3.2**: File Error Handling Test - 15 min
 6. **Experiment 2.2**: Model Quality Test - 30 min
 
-**Go/No-Go Decision**: If binary integration fails or model quality poor, re-evaluate
+**Go/No-Go Decision**: If binary can't read files properly or model quality poor, re-evaluate
 
 ### Phase 3: E2E Flow (Do Third)
 7. **Experiment 4.1**: Skill Creation - 10 min
@@ -315,10 +347,11 @@ done
 - **Option B**: Improve prompts with few-shot examples
 - **Option C**: Chain multiple smaller prompts instead of one big review
 
-### If Binary Integration Fails:
-- **Option A**: Use Python script instead (might be easier for JSON)
-- **Option B**: Create intermediate temp file instead of stdin/stdout
-- **Option C**: Use HTTP server instead of CLI binary
+### If Binary File Reading Fails:
+- **Option A**: Have subagent read file and pass content (defeats optimization but works)
+- **Option B**: Use Python script instead of Rust (might be easier)
+- **Option C**: Create intermediate temp file for communication
+- **Option D**: Use HTTP server instead of CLI binary
 
 ### If Context Size is Too Small:
 - **Option A**: Chunk large files into sections
