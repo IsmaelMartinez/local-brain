@@ -448,7 +448,6 @@ See [LICENSE](LICENSE) file.
 ## Contact & Support
 
 - Issues: GitHub Issues
-- Discussions: GitHub Discussions
 
 ---
 
