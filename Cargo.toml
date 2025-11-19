@@ -1,0 +1,18 @@
+[package]
+name = "local-context-optimizer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Local Context Helper Contributors"]
+description = "A tool for structured code review using local Ollama LLM models"
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+anyhow = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
