@@ -1,4 +1,4 @@
-# Local Context Helper
+# Local Brain
 
 A Rust binary that performs structured code reviews using local Ollama LLM models, optimized for Claude Code integration with minimal context usage.
 
@@ -17,7 +17,7 @@ A Rust binary that performs structured code reviews using local Ollama LLM model
 cargo build --release
 
 # Test
-echo '{"file_path":"src/main.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | ./target/release/local-context-optimizer
+echo '{"file_path":"src/main.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | ./target/release/local-brain
 ```
 
 ### Configuration

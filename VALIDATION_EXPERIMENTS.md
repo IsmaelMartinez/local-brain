@@ -138,7 +138,7 @@ EOF
 ## Phase 3: E2E Flow (45 min)
 
 ### Experiment 3.1: Skill Creation
-Create `.claude/skills/local-context-optimiser/skill.md` with basic instructions.
+Create `.claude/skills/local-brain/skill.md` with basic instructions.
 
 **Success**: Skill file created and recognized by Claude Code.
 

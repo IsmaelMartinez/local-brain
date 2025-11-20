@@ -1,4 +1,4 @@
-// Local Context Optimizer
+// Local Brain
 // A tool for structured code review using local Ollama LLM models
 //
 // See IMPLEMENTATION_PLAN.md for complete specification

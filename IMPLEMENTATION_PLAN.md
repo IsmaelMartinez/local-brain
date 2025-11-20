@@ -1,4 +1,4 @@
-# Local Context Optimiser – Implementation Plan
+# Local Brain – Implementation Plan
 
 ## Overview
 
@@ -33,7 +33,7 @@ Build a single Rust binary that:
          ▼
 ┌─────────────────────────┐
 │  Rust Binary            │
-│  local-context-optimizer│  ◄── Heavy lifting: reads file, calls Ollama
+│  local-brain│  ◄── Heavy lifting: reads file, calls Ollama
 │  - Reads file           │
 │  - Calls Ollama         │
 │  - Returns review       │
@@ -65,7 +65,7 @@ Build a single Rust binary that:
 
 ### Binary Name
 ```
-local-context-optimizer
+local-brain
 ```
 
 ### Input Format (stdin)
@@ -116,7 +116,7 @@ local-context-optimizer
 
 ### Rust Crate Layout
 ```
-local-context-optimizer/
+local-brain/
 ├── Cargo.toml
 ├── src/
 │   └── main.rs
@@ -131,7 +131,7 @@ Start with a simple binary crate (no workspace needed for v1).
 
 ```toml
 [package]
-name = "local-context-optimizer"
+name = "local-brain"
 version = "0.1.0"
 edition = "2021"
 
@@ -348,9 +348,9 @@ Provide your structured review as JSON only.
 
 ## Claude Code Integration
 
-### Skill: local-context-optimiser
+### Skill: local-brain
 
-**Location**: `.claude/skills/local-context-optimiser/skill.md`
+**Location**: `.claude/skills/local-brain/skill.md`
 
 **Purpose**: Call the Rust binary to get a structured review of a document using a local LLM.
 
@@ -369,7 +369,7 @@ This skill performs structured reviews of documents using a local Ollama model.
 1. Receive file path(s) from main conversation
 2. Determine metadata (kind, review_focus) from context or user request
 3. Build InputPayload JSON with **file path** (not content!)
-4. Run: `echo '<json>' | local-context-optimizer`
+4. Run: `echo '<json>' | local-brain`
 5. Binary reads file, calls Ollama, returns review
 6. Parse JSON output
 7. Return concise, human-friendly summary to main conversation
@@ -383,7 +383,7 @@ This skill performs structured reviews of documents using a local Ollama model.
 ## Example
 ```bash
 # Subagent just passes the path - binary does the reading!
-echo '{"file_path":"src/auth.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | local-context-optimizer
+echo '{"file_path":"src/auth.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | local-brain
 ```
 
 ## Important
@@ -400,14 +400,14 @@ echo '{"file_path":"src/auth.rs","meta":{"kind":"code","review_focus":"refactori
 **Model**: Haiku 4.5 (cheap, fast)
 
 **Tools Available**:
-- Skill: local-context-optimiser
+- Skill: local-brain
 - Read (to fetch documents)
 
 **Behavior**:
 1. Receive file path(s) and review focus from main conversation
 2. Determine file kind from extension or context (code, design-doc, etc.)
 3. Build JSON payload with **file path only** (no reading!)
-4. Call the local-context-optimiser Skill (which pipes JSON to Rust binary)
+4. Call the local-brain Skill (which pipes JSON to Rust binary)
 5. Binary reads file and calls Ollama (subagent waits for result)
 6. Interpret the JSON review from binary output
 7. Return a concise, human-friendly summary to main conversation
@@ -420,7 +420,7 @@ You are a review assistant that helps analyze documents using a local LLM.
 Your role:
 - Receive file path(s) from the main conversation (NOT file content)
 - Build JSON payload with the file path (DO NOT read the file yourself!)
-- Call the local-context-optimiser skill which runs a Rust binary
+- Call the local-brain skill which runs a Rust binary
 - The binary handles all file reading and Ollama interaction
 - Interpret the structured JSON review you receive back
 - Return a clear, actionable summary to the main conversation
@@ -429,7 +429,7 @@ Workflow:
 1. Get file path and review focus from main conversation
 2. Determine file kind from extension (e.g., .rs -> code, .md -> design-doc)
 3. Build JSON: {"file_path": "/path/to/file", "meta": {"kind": "...", "review_focus": "..."}}
-4. Call skill: echo '<json>' | local-context-optimizer
+4. Call skill: echo '<json>' | local-brain
 5. Wait for binary to read file, call Ollama, and return review JSON
 6. Parse JSON output and present in human-friendly format
 7. Suggest priorities and next steps
@@ -443,7 +443,7 @@ Keep responses concise and actionable. Your context stays minimal because you ne
 ## V1 Implementation Checklist
 
 ### Phase 1: Rust Binary
-- [ ] Create Cargo project: `cargo new local-context-optimizer`
+- [ ] Create Cargo project: `cargo new local-brain`
 - [ ] Add dependencies to `Cargo.toml`
 - [ ] Implement data structures (Input/Output structs)
 - [ ] Implement stdin reading and JSON deserialization
@@ -463,7 +463,7 @@ Keep responses concise and actionable. Your context stays minimal because you ne
 - [ ] Refine prompts until JSON output is stable
 
 ### Phase 3: Claude Code Integration
-- [ ] Create `.claude/skills/local-context-optimiser/` directory
+- [ ] Create `.claude/skills/local-brain/` directory
 - [ ] Write skill.md with usage instructions
 - [ ] Test skill from Claude Code main conversation
 - [ ] Configure review-optimiser subagent
@@ -496,21 +496,21 @@ echo '{
 echo 'fn main() { println!("Hello"); }' > /tmp/test.rs
 
 # Run binary
-cat /tmp/test_input.json | local-context-optimizer
+cat /tmp/test_input.json | local-brain
 
 # Test 2: Minimal input
 echo '{
   "file_path": "/tmp/test.rs"
-}' | local-context-optimizer
+}' | local-brain
 
 # Test 3: File not found (should fail gracefully)
 echo '{
   "file_path": "/nonexistent/file.rs",
   "meta": {"kind": "code"}
-}' | local-context-optimizer
+}' | local-brain
 
 # Test 4: Invalid JSON (should fail gracefully)
-echo 'not json' | local-context-optimizer
+echo 'not json' | local-brain
 ```
 
 ### Integration Testing
@@ -697,7 +697,7 @@ Passes: file_path="src/auth.rs", review_focus="refactoring"
   }
 }
 ```
-4. Calls binary: `echo '<json>' | local-context-optimizer`
+4. Calls binary: `echo '<json>' | local-brain`
 5. Binary reads file, sends to Ollama, returns review
 6. Subagent receives output:
 ```json
