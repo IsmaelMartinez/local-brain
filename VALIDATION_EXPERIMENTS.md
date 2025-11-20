@@ -22,7 +22,7 @@ ollama list
 ### Experiment 1.2: Basic JSON Test
 ```bash
 curl -X POST http://localhost:11434/api/chat -d '{
-  "model": "llama3.2",
+  "model": "deepseek-coder-v2-8k",
   "messages": [
     {"role": "system", "content": "Return ONLY valid JSON. No other text."},
     {"role": "user", "content": "Return: {\"status\": \"ok\", \"value\": 42}"}
@@ -38,7 +38,7 @@ curl -X POST http://localhost:11434/api/chat -d '{
 ### Experiment 1.3: Review Structure Test
 ```bash
 curl -X POST http://localhost:11434/api/chat -d '{
-  "model": "llama3.2",
+  "model": "deepseek-coder-v2-8k",
   "messages": [
     {"role": "system", "content": "Output ONLY valid JSON: {\"spikes\": [{\"title\": \"str\", \"summary\": \"str\"}], \"simplifications\": [], \"defer_for_later\": [], \"other_observations\": []}"},
     {"role": "user", "content": "Review: function add(a,b) { return a+b; }"}
