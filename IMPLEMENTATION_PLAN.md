@@ -1,8 +1,23 @@
 # Local Brain – Implementation Plan
 
+## Current Status
+
+**Phase**: Implementation Complete - Ready for Validation Testing
+
+| Component | Status |
+|-----------|--------|
+| Rust Binary | ✅ Complete (compiles, tests pass) |
+| Documentation | ✅ Complete (README, this plan) |
+| Validation Experiments | 📋 Not started |
+| Claude Code Integration | 📋 Not started |
+
+**Default Model**: `deepseek-coder-v2-8k`
+
+---
+
 ## Overview
 
-This document outlines the implementation plan for a Rust-based Local Context Optimiser that performs structured code and document reviews using a local Ollama model.
+This document outlines the implementation plan for a Rust-based local code reviewer that performs structured code and document reviews using a local Ollama model.
 
 ## Goal
 
@@ -257,7 +272,7 @@ fn main() -> Result<(), anyhow::Error> {
 
 ### Environment Variables
 - **`OLLAMA_HOST`**: Ollama server URL (default: `http://localhost:11434`)
-- **`MODEL_NAME`**: Model to use (e.g., `llama3.2`, `mistral`, etc.)
+- **`MODEL_NAME`**: Model to use (default: `deepseek-coder-v2-8k`)
 
 ### API Endpoint
 ```
@@ -267,7 +282,7 @@ POST {OLLAMA_HOST}/api/chat
 ### Request Body
 ```json
 {
-  "model": "llama3.2",
+  "model": "deepseek-coder-v2-8k",
   "messages": [
     {
       "role": "system",
@@ -443,16 +458,16 @@ Keep responses concise and actionable. Your context stays minimal because you ne
 ## V1 Implementation Checklist
 
 ### Phase 1: Rust Binary
-- [ ] Create Cargo project: `cargo new local-brain`
-- [ ] Add dependencies to `Cargo.toml`
-- [ ] Implement data structures (Input/Output structs)
-- [ ] Implement stdin reading and JSON deserialization
-- [ ] Implement prompt building logic
-- [ ] Implement Ollama API client (reqwest blocking)
-- [ ] Implement response parsing with error handling
-- [ ] Implement stdout JSON serialization
-- [ ] Add comprehensive error handling with anyhow
-- [ ] Add environment variable support (`OLLAMA_HOST`, `MODEL_NAME`)
+- [x] Create Cargo project: `cargo new local-brain`
+- [x] Add dependencies to `Cargo.toml`
+- [x] Implement data structures (Input/Output structs)
+- [x] Implement stdin reading and JSON deserialization
+- [x] Implement prompt building logic
+- [x] Implement Ollama API client (reqwest blocking)
+- [x] Implement response parsing with error handling
+- [x] Implement stdout JSON serialization
+- [x] Add comprehensive error handling with anyhow
+- [x] Add environment variable support (`OLLAMA_HOST`, `MODEL_NAME`)
 
 ### Phase 2: Testing
 - [ ] Test binary manually with sample JSON
@@ -470,10 +485,10 @@ Keep responses concise and actionable. Your context stays minimal because you ne
 - [ ] Test end-to-end: User → Subagent → Skill → Binary → Ollama → User
 
 ### Phase 4: Documentation & Refinement
-- [ ] Write README.md for the Rust binary
-- [ ] Document installation and setup
-- [ ] Document environment variables and configuration
-- [ ] Add example usage and sample output
+- [x] Write README.md for the Rust binary
+- [x] Document installation and setup
+- [x] Document environment variables and configuration
+- [x] Add example usage and sample output
 - [ ] Create troubleshooting guide
 - [ ] Refine prompts based on real-world usage
 
