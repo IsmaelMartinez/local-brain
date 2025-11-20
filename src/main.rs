@@ -177,7 +177,7 @@ struct OllamaMessage {
 fn call_ollama(system_msg: &str, user_msg: &str) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
-    let model_name = std::env::var("MODEL_NAME").unwrap_or_else(|_| "llama3.2".to_string());
+    let model_name = std::env::var("MODEL_NAME").unwrap_or_else(|_| "deepseek-coder-v2".to_string());
 
     // Build request body
     let request_body = serde_json::json!({
