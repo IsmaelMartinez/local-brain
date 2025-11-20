@@ -8,7 +8,7 @@ A Rust binary that performs structured code reviews using local Ollama LLM model
 
 - Rust 1.70+ (`rustup`)
 - Ollama (`ollama.ai`)
-- An LLM model: `ollama pull deepseek-coder-v2`
+- An LLM model: `ollama pull deepseek-coder-v2-8k`
 
 ### Build & Run
 
@@ -24,7 +24,7 @@ echo '{"file_path":"src/main.rs","meta":{"kind":"code","review_focus":"refactori
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL_NAME` | `deepseek-coder-v2` | Ollama model |
+| `MODEL_NAME` | `deepseek-coder-v2-8k` | Ollama model |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint |
 
 ## How It Works
