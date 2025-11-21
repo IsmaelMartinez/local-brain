@@ -4,9 +4,40 @@
 // See IMPLEMENTATION_PLAN.md for complete specification
 
 use anyhow::{Context, Result};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::PathBuf;
+
+// ============================================================================
+// CLI Arguments
+// ============================================================================
+
+/// Command-line interface for local-brain
+#[derive(Parser, Debug)]
+#[command(name = "local-brain")]
+#[command(about = "A tool for structured code review using local Ollama LLM models", long_about = None)]
+struct Cli {
+    /// Explicit model name to use (e.g., "qwen2.5-coder:3b")
+    #[arg(long)]
+    model: Option<String>,
+
+    /// Task type for automatic model selection (e.g., "quick-review", "documentation", "security")
+    #[arg(long)]
+    task: Option<String>,
+}
+
+// ============================================================================
+// Model Registry Structures
+// ============================================================================
+
+/// Model registry loaded from models.json
+#[derive(Debug, Deserialize)]
+struct ModelRegistry {
+    task_mappings: HashMap<String, String>,
+    default_model: String,
+}
 
 // ============================================================================
 // Data Structures
@@ -28,6 +59,8 @@ struct InputPayload {
     file_path: PathBuf,
     /// Optional metadata
     meta: Option<Meta>,
+    /// Optional model override from JSON input
+    ollama_model: Option<String>,
 }
 
 /// A single review item with title, summary, and optional line range
@@ -57,17 +90,23 @@ struct OutputPayload {
 // ============================================================================
 
 fn main() -> Result<()> {
-    // 1. Read stdin into a string
+    // 1. Parse CLI arguments
+    let cli = Cli::parse();
+
+    // 2. Read stdin into a string
     let mut input = String::new();
     io::stdin()
         .read_to_string(&mut input)
         .context("Failed to read from stdin")?;
 
-    // 2. Deserialize to InputPayload
+    // 3. Deserialize to InputPayload
     let payload: InputPayload =
         serde_json::from_str(&input).context("Failed to parse input JSON")?;
 
-    // 3. Read file from disk
+    // 4. Select model based on priority: CLI --model > stdin ollama_model > CLI --task > default
+    let selected_model = select_model(&cli, &payload)?;
+
+    // 5. Read file from disk
     let document = std::fs::read_to_string(&payload.file_path)
         .with_context(|| format!("Failed to read file: {:?}", payload.file_path))?;
 
@@ -78,19 +117,94 @@ fn main() -> Result<()> {
         .and_then(|n| n.to_str())
         .unwrap_or("unknown");
 
-    // 4. Build Ollama prompt
+    // 6. Build Ollama prompt
     let (system_msg, user_msg) = build_prompt(&document, filename, &payload.meta)?;
 
-    // 5. Call Ollama API
-    let response = call_ollama(&system_msg, &user_msg)?;
+    // 7. Call Ollama API with selected model
+    let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
 
-    // 6. Parse response into OutputPayload
+    // 8. Parse response into OutputPayload
     let output: OutputPayload = parse_ollama_response(&response)?;
 
-    // 7. Serialize to stdout
+    // 9. Serialize to stdout
     serde_json::to_writer(io::stdout(), &output).context("Failed to write output JSON")?;
 
     Ok(())
+}
+
+// ============================================================================
+// Model Selection
+// ============================================================================
+
+/// Select model based on priority: CLI --model > stdin ollama_model > CLI --task > default
+fn select_model(cli: &Cli, payload: &InputPayload) -> Result<String> {
+    // Priority 1: CLI --model flag
+    if let Some(model) = &cli.model {
+        return Ok(model.clone());
+    }
+
+    // Priority 2: stdin ollama_model field
+    if let Some(model) = &payload.ollama_model {
+        return Ok(model.clone());
+    }
+
+    // Priority 3: CLI --task flag with model registry lookup
+    if let Some(task) = &cli.task {
+        return load_model_from_task(task);
+    }
+
+    // Priority 4: Environment variable (for backwards compatibility)
+    if let Ok(model) = std::env::var("MODEL_NAME") {
+        return Ok(model);
+    }
+
+    // Priority 5: Default from models.json or fallback
+    load_default_model()
+}
+
+/// Load model registry and get model for specified task
+fn load_model_from_task(task: &str) -> Result<String> {
+    let registry = load_model_registry()?;
+
+    registry
+        .task_mappings
+        .get(task)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!(
+            "Unknown task type: '{}'. Available tasks: {}",
+            task,
+            registry.task_mappings.keys()
+                .map(|k| k.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+}
+
+/// Load default model from registry
+fn load_default_model() -> Result<String> {
+    let registry = load_model_registry()?;
+    Ok(registry.default_model)
+}
+
+/// Load model registry from models.json
+fn load_model_registry() -> Result<ModelRegistry> {
+    // Try to load models.json from current directory or binary directory
+    let models_json = std::fs::read_to_string("models.json")
+        .or_else(|_| {
+            // Try in the directory of the executable
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+            if let Some(dir) = exe_dir {
+                std::fs::read_to_string(dir.join("models.json"))
+            } else {
+                Err(std::io::Error::new(std::io::ErrorKind::NotFound, "models.json not found"))
+            }
+        })
+        .context("Failed to read models.json. Ensure models.json exists in the current directory or next to the binary.")?;
+
+    serde_json::from_str(&models_json)
+        .context("Failed to parse models.json")
 }
 
 // ============================================================================
@@ -176,10 +290,9 @@ struct OllamaMessage {
 }
 
 /// Call Ollama API with the given prompts
-fn call_ollama(system_msg: &str, user_msg: &str) -> Result<String> {
+fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
-    let model_name = std::env::var("MODEL_NAME").unwrap_or_else(|_| "deepseek-coder-v2-8k".to_string());
 
     // Build request body
     let request_body = serde_json::json!({

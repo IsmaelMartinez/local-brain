@@ -24,8 +24,52 @@ echo '{"file_path":"src/main.rs","meta":{"kind":"code","review_focus":"refactori
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL_NAME` | `deepseek-coder-v2-8k` | Ollama model |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint |
+| `MODEL_NAME` | From `models.json` | Fallback model (deprecated, use CLI flags) |
+
+### Model Selection
+
+Local Brain supports multiple Ollama models with automatic selection based on task type. Model selection priority:
+
+1. **CLI `--model` flag** (highest priority)
+2. **JSON `ollama_model` field**
+3. **CLI `--task` flag** (maps to model via `models.json`)
+4. **Default model** from `models.json`
+
+#### Usage Examples
+
+```bash
+# Explicit model selection
+echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain --model qwen2.5-coder:3b
+
+# Task-based automatic selection
+echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain --task quick-review
+
+# JSON override (highest priority after --model)
+echo '{"file_path":"src/main.rs","ollama_model":"phi3:mini"}' | ./target/release/local-brain
+
+# Default model (from models.json)
+echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
+```
+
+#### Available Tasks
+
+| Task | Recommended Model | Use Case |
+|------|------------------|----------|
+| `quick-review` | `qwen2.5-coder:3b` | Fast code checks, syntax analysis |
+| `syntax-check` | `qwen2.5-coder:3b` | Simple code smell detection |
+| `summarize` | `llama3.2:1b` | Quick file summaries |
+| `triage` | `llama3.2:1b` | Rapid codebase assessment |
+| `documentation` | `phi3:mini` | Documentation quality review |
+| `general-review` | `phi3:mini` | Balanced code review |
+| `requirements` | `qwen2.5:3b` | Requirements analysis |
+| `prioritization` | `qwen2.5:3b` | Task prioritization |
+| `design-review` | `qwen2.5:3b` | Design document review |
+| `thorough-review` | `deepseek-coder-v2:8k` | Deep code analysis (default) |
+| `security` | `deepseek-coder-v2:8k` | Security-focused review |
+| `architecture` | `deepseek-coder-v2:8k` | Architectural analysis |
+
+**Model Registry**: See `models.json` for complete model specifications and RAM requirements.
 
 ## How It Works
 
