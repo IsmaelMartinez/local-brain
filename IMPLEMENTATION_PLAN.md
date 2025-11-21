@@ -944,34 +944,45 @@ Make local-brain easy to share and install, prioritizing the Claude Code plugin 
 - Installation script: `curl | sh`
 - Docker image option (for non-macOS users)
 
-#### 6. Task & Work Prioritization
+#### 6. Prioritization Capabilities
 
-Analyze and prioritize development tasks based on technical and business factors.
+Two distinct prioritization modes for different contexts.
+
+---
+
+##### 6a. Technical Task Prioritization (TODOs, Bugs, Refactoring)
+
+Prioritize code-level tasks based on technical factors.
 
 **Use Cases**:
 - "Prioritize TODOs in this file based on impact"
-- "Sort GitHub issues by technical risk"
+- "Sort bugs by technical risk"
 - "Which refactoring tasks should I tackle first?"
-- "Analyze sprint backlog and suggest priority order"
+- "Order tech debt items by urgency"
 
 **Input Sources**:
-- TODO comments in codebase
-- GitHub issues (via gh CLI)
-- Project markdown files (ROADMAP.md, BACKLOG.md)
-- Architecture decision records
+- TODO/FIXME comments in codebase
+- Bug tracking issues (GitHub/GitLab)
+- Code review findings
+- Architecture decision records (technical sections)
 
 **Recommended Models**:
-- **Primary**: `qwen2.5:7b` (4.7GB) - Strong reasoning capabilities
-- **Fallback**: `deepseek-coder-v2:8k` (8.6GB) - Code-aware (current default)
-- **Quick mode**: `llama3.2:3b` (2GB) - Simple prioritization
+- **Primary**: `deepseek-coder-v2:8k` (8.6GB) - Best code context understanding ⭐
+- **Alternative**: `qwen2.5-coder:7b` (4.7GB) - Code-aware, lighter weight
+- **Quick mode**: `qwen2.5-coder:3b` (1.9GB) - Fast technical scanning
+
+**Why Code Models**: Technical prioritization needs understanding of:
+- Code dependencies and coupling
+- Technical complexity indicators
+- Security/performance implications
+- Architecture patterns and smells
 
 **Prioritization Factors**:
-- **Dependencies**: Does this block other work?
-- **Impact**: Users affected, scope of change
-- **Complexity**: Time/effort estimate
-- **Risk**: Potential for bugs, security issues
-- **Technical debt**: Accruing interest over time?
-- **Business value**: Revenue, retention, user satisfaction
+- **Dependencies**: Blocks other technical work?
+- **Technical risk**: Security, stability, performance
+- **Complexity**: Time/effort estimate (dev perspective)
+- **Technical debt**: Accruing interest, future maintenance burden
+- **Impact on codebase**: Scope of change, refactoring ripple effects
 
 **Example Usage**:
 ```bash
@@ -981,31 +992,118 @@ echo '{
   "meta": {"task": "prioritize_todos"}
 }' | local-brain
 
-# Output: Sorted list with reasoning
+# Output: Sorted by technical priority
 {
   "high_priority": [
-    {"line": 45, "reason": "Memory leak affects stability", "impact": "high"}
+    {"line": 45, "reason": "Memory leak affects stability, blocks deployment", "complexity": "medium"}
   ],
   "medium_priority": [
-    {"line": 78, "reason": "Performance optimization", "impact": "medium"}
+    {"line": 78, "reason": "Performance optimization, noticeable in production", "complexity": "low"}
   ],
   "low_priority": [
-    {"line": 120, "reason": "Code cleanup, no functional change", "impact": "low"}
+    {"line": 120, "reason": "Code cleanup, no functional change", "complexity": "low"}
   ]
 }
 ```
 
+---
+
+##### 6b. Requirements Prioritization (Features, Epics, User Stories)
+
+Prioritize product/feature work based on business and user value.
+
+**Use Cases**:
+- "Prioritize features in the roadmap"
+- "Sort user stories by business value"
+- "Which epic should we work on next quarter?"
+- "Analyze backlog and suggest sprint priorities"
+
+**Input Sources**:
+- Product roadmap documents (ROADMAP.md, PRD.md)
+- User stories and epics
+- Feature request documents
+- Strategic planning docs
+
+**Recommended Models**:
+- **Primary**: `qwen2.5:7b` (4.7GB) - Strong general reasoning ⭐
+- **Alternative**: `llama3.1:8b` (4.7GB) - Good business context understanding
+- **Alternative**: `phi3:medium` (7.9GB) - Efficient reasoning
+
+**Why General Models**: Requirements prioritization needs understanding of:
+- Business context and strategy
+- User needs and pain points
+- Market dynamics and competition
+- ROI and resource allocation
+- Cross-functional dependencies
+
+**Prioritization Factors**:
+- **Business value**: Revenue impact, strategic alignment
+- **User impact**: Number of users affected, pain severity
+- **Market timing**: Competitive pressure, windows of opportunity
+- **Dependencies**: Cross-team, external integrations
+- **Resource availability**: Team capacity, skills required
+- **Risk/uncertainty**: Technical unknowns, market validation
+
+**Example Usage**:
+```bash
+# Analyze product backlog
+echo '{
+  "file_path": "docs/BACKLOG.md",
+  "meta": {"task": "prioritize_requirements"}
+}' | local-brain --model qwen2.5:7b
+
+# Output: Sorted by business priority
+{
+  "high_priority": [
+    {
+      "requirement": "User authentication SSO",
+      "reason": "Blocks enterprise sales, high revenue impact",
+      "business_value": "high",
+      "user_impact": "high"
+    }
+  ],
+  "medium_priority": [
+    {
+      "requirement": "Dark mode UI",
+      "reason": "Requested by 40% of users, moderate effort",
+      "business_value": "medium",
+      "user_impact": "high"
+    }
+  ],
+  "defer": [
+    {
+      "requirement": "Advanced analytics dashboard",
+      "reason": "Low user demand, high complexity, unclear ROI",
+      "business_value": "uncertain",
+      "user_impact": "low"
+    }
+  ]
+}
+```
+
+---
+
+**Comparison**:
+
+| Aspect | Technical Tasks | Requirements |
+|--------|----------------|--------------|
+| **Focus** | Code, bugs, tech debt | Features, user needs, business value |
+| **Context** | Technical codebase | Product, market, users |
+| **Best Model** | `deepseek-coder-v2:8k` | `qwen2.5:7b` |
+| **Key Factors** | Dependencies, risk, complexity | ROI, user impact, strategy |
+| **Stakeholders** | Engineering team | Product, business, customers |
+
+**Shared Capabilities**:
+- Uses same infrastructure (Ollama, JSON I/O, subagent pattern)
+- Keeps planning local and private
+- Can use multi-call consensus for complex decisions
+- Best used as suggestion tool, not automated decision-maker
+
 **Limitations**:
 - Quality depends on context provided
 - Can't access external systems (JIRA, Linear) without integration
-- Best used as suggestion tool, not automated decision-maker
-- May benefit from multi-call consensus for complex prioritization
-
-**Why This Fits Local-Brain**:
-- Uses same infrastructure (Ollama, JSON I/O, subagent pattern)
-- Complements code review (decide what to review/fix first)
-- Keeps planning and decision-making local and private
-- Natural extension of existing capabilities
+- Requires clear problem framing in input documents
+- May benefit from multi-call consensus for high-stakes prioritization
 
 #### 7. Other Concept Explorations
 - **Incremental analysis**: Only review changed files (git diff integration)
