@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::PathBuf;
+use std::process::Command;
 
 // ============================================================================
 // CLI Arguments
@@ -26,6 +27,10 @@ struct Cli {
     /// Task type for automatic model selection (e.g., "quick-review", "documentation", "security")
     #[arg(long)]
     task: Option<String>,
+
+    /// Review git diff (staged changes). If no files staged, reviews all changes.
+    #[arg(long)]
+    git_diff: bool,
 }
 
 // ============================================================================
@@ -93,6 +98,12 @@ fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let cli = Cli::parse();
 
+    if cli.git_diff {
+        // Git diff mode: review changed files
+        return handle_git_diff(&cli);
+    }
+
+    // Normal mode: read from stdin
     // 2. Read stdin into a string
     let mut input = String::new();
     io::stdin()
@@ -103,10 +114,21 @@ fn main() -> Result<()> {
     let payload: InputPayload =
         serde_json::from_str(&input).context("Failed to parse input JSON")?;
 
-    // 4. Select model based on priority: CLI --model > stdin ollama_model > CLI --task > default
-    let selected_model = select_model(&cli, &payload)?;
+    // 4. Review the file and output result
+    let output = review_file(&cli, &payload)?;
 
-    // 5. Read file from disk
+    // 5. Serialize to stdout
+    serde_json::to_writer(io::stdout(), &output).context("Failed to write output JSON")?;
+
+    Ok(())
+}
+
+/// Review a single file based on InputPayload
+fn review_file(cli: &Cli, payload: &InputPayload) -> Result<OutputPayload> {
+    // 1. Select model
+    let selected_model = select_model(cli, payload)?;
+
+    // 2. Read file from disk
     let document = std::fs::read_to_string(&payload.file_path)
         .with_context(|| format!("Failed to read file: {:?}", payload.file_path))?;
 
@@ -117,19 +139,125 @@ fn main() -> Result<()> {
         .and_then(|n| n.to_str())
         .unwrap_or("unknown");
 
-    // 6. Build Ollama prompt
+    // 3. Build Ollama prompt
     let (system_msg, user_msg) = build_prompt(&document, filename, &payload.meta)?;
 
-    // 7. Call Ollama API with selected model
+    // 4. Call Ollama API with selected model
     let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
 
-    // 8. Parse response into OutputPayload
-    let output: OutputPayload = parse_ollama_response(&response)?;
+    // 5. Parse response into OutputPayload
+    parse_ollama_response(&response)
+}
 
-    // 9. Serialize to stdout
-    serde_json::to_writer(io::stdout(), &output).context("Failed to write output JSON")?;
+/// Handle git diff mode: get changed files and review each
+fn handle_git_diff(cli: &Cli) -> Result<()> {
+    // Get list of changed files
+    let changed_files = get_git_changed_files()?;
+
+    if changed_files.is_empty() {
+        eprintln!("No changed files found");
+        return Ok(());
+    }
+
+    eprintln!("Reviewing {} changed file(s)...", changed_files.len());
+
+    // Review each file
+    let mut all_spikes = Vec::new();
+    let mut all_simplifications = Vec::new();
+    let mut all_defer = Vec::new();
+    let mut all_observations = Vec::new();
+
+    for file_path in &changed_files {
+        eprintln!("Reviewing: {}", file_path.display());
+
+        // Create payload for this file
+        let payload = InputPayload {
+            file_path: file_path.clone(),
+            meta: Some(Meta {
+                kind: Some("code".to_string()),
+                review_focus: Some("general".to_string()),
+            }),
+            ollama_model: None,
+        };
+
+        // Review the file
+        match review_file(cli, &payload) {
+            Ok(output) => {
+                // Add file context to each item
+                let file_name = file_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+
+                for mut spike in output.spikes {
+                    spike.title = format!("[{}] {}", file_name, spike.title);
+                    all_spikes.push(spike);
+                }
+
+                for mut simp in output.simplifications {
+                    simp.title = format!("[{}] {}", file_name, simp.title);
+                    all_simplifications.push(simp);
+                }
+
+                for mut defer in output.defer_for_later {
+                    defer.title = format!("[{}] {}", file_name, defer.title);
+                    all_defer.push(defer);
+                }
+
+                for obs in output.other_observations {
+                    all_observations.push(format!("[{}] {}", file_name, obs));
+                }
+            }
+            Err(e) => {
+                eprintln!("Error reviewing {}: {}", file_path.display(), e);
+            }
+        }
+    }
+
+    // Aggregate and output results
+    let aggregated = OutputPayload {
+        spikes: all_spikes,
+        simplifications: all_simplifications,
+        defer_for_later: all_defer,
+        other_observations: all_observations,
+    };
+
+    serde_json::to_writer(io::stdout(), &aggregated)
+        .context("Failed to write aggregated output JSON")?;
 
     Ok(())
+}
+
+/// Get list of changed files from git
+fn get_git_changed_files() -> Result<Vec<PathBuf>> {
+    // Try staged files first
+    let output = Command::new("git")
+        .args(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+        .output()
+        .context("Failed to execute git diff --cached")?;
+
+    let mut files = String::from_utf8(output.stdout)
+        .context("Invalid UTF-8 from git output")?;
+
+    // If no staged files, get all modified files
+    if files.trim().is_empty() {
+        let output = Command::new("git")
+            .args(&["diff", "--name-only", "--diff-filter=ACMR"])
+            .output()
+            .context("Failed to execute git diff")?;
+
+        files = String::from_utf8(output.stdout)
+            .context("Invalid UTF-8 from git output")?;
+    }
+
+    // Convert to PathBuf, filtering out empty lines
+    let paths: Vec<PathBuf> = files
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| PathBuf::from(line.trim()))
+        .collect();
+
+    Ok(paths)
 }
 
 // ============================================================================
