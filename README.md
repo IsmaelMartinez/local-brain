@@ -107,9 +107,10 @@ echo '{"file_path": "/path/to/file"}' | ./target/release/local-brain | jq .
 
 ## Documentation
 
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Complete technical specification
-- **[VALIDATION_EXPERIMENTS.md](VALIDATION_EXPERIMENTS.md)** - Pre-implementation testing
-- **[VALIDATION_RESULTS.md](VALIDATION_RESULTS.md)** - Validation test results (100% pass rate)
+- **[MODELS.md](MODELS.md)** - Complete guide to model selection and performance
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Technical specification and roadmap
+- **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization analysis
+- **[models.json](models.json)** - Model registry and task mappings
 
 ## Development
 
