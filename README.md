@@ -50,7 +50,37 @@ echo '{"file_path":"src/main.rs","ollama_model":"phi3:mini"}' | ./target/release
 
 # Default model (from models.json)
 echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
+
+# Git Diff Integration - review all changed files
+./target/release/local-brain --git-diff --task quick-review
 ```
+
+### Git Diff Integration
+
+Review all changed files in your git repository with a single command:
+
+```bash
+# Review all changed files (staged or unstaged)
+./target/release/local-brain --git-diff --task quick-review
+
+# Use specific model for git diff review
+./target/release/local-brain --git-diff --model qwen2.5-coder:3b
+
+# Use default model
+./target/release/local-brain --git-diff
+```
+
+**Behavior**:
+- First checks for staged files (`git diff --cached`)
+- If no staged files, reviews all unstaged changes (`git diff`)
+- Reviews each changed file individually
+- Aggregates results with filename context
+- Perfect for pre-commit reviews
+
+**Use Cases**:
+- Pre-commit reviews: `./target/release/local-brain --git-diff --task quick-review`
+- Security check before push: `./target/release/local-brain --git-diff --task security`
+- Quick sanity check: `./target/release/local-brain --git-diff --task syntax-check`
 
 #### Available Tasks
 
