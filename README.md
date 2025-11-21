@@ -1,6 +1,6 @@
 # Local Brain
 
-A Rust binary that performs structured code reviews using local Ollama LLM models, optimized for Claude Code integration with minimal context usage.
+A Rust binary that offloads context and logic to local Ollama LLM models, optimized for Claude Code integration with minimal context usage. Supports code reviews, documentation analysis, summarization, and more.
 
 ## Quick Start
 
@@ -73,7 +73,7 @@ echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
 
 ## How It Works
 
-The binary receives a **file path** (not content), reads the file, calls Ollama for review, and returns structured JSON:
+The binary receives a **file path** (not content), reads the file, calls Ollama for processing, and returns structured JSON:
 
 ```json
 {
@@ -148,7 +148,7 @@ Verify code smell detection with the integration test:
 **Status**: ✅ Resolved
 
 **Limitation**: Model may hallucinate when reviewing pure documentation files
-**Recommendation**: Best suited for code reviews, use with caution for text-only docs
+**Recommendation**: Best results with structured content (code, configs, technical docs)
 **Status**: Known limitation
 
 ## License
