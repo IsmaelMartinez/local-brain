@@ -821,9 +821,11 @@ Explore targeted Ollama models for specific use cases:
 **RAM Constraints** (16GB total):
 - System + apps: ~4-6GB
 - Available for Ollama: ~10-12GB
-- Safe limit: Models ≤ 8GB loaded
-- Current default (deepseek-coder-v2:8k @ 8.6GB) is at the limit ✅
-- Models ≥ 13B won't fit reliably
+- Safe limit: Models ≤ 9GB loaded (tested with current setup)
+- Current default (deepseek-coder-v2:8k @ 8.6GB) works reliably ✅
+- Models ≥ 13B (~10GB+) won't fit reliably
+
+**Note**: The 8.6GB default model is a tested exception that works within the 16GB total RAM constraint. For safety margin, prefer models ≤ 7GB when possible.
 
 **Rationale**: Different tasks have different requirements. A lightweight model can summarize files quickly, while security analysis needs the full 8B model. Ollama makes switching models trivial compared to HuggingFace.
 
