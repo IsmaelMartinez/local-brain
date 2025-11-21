@@ -944,7 +944,70 @@ Make local-brain easy to share and install, prioritizing the Claude Code plugin 
 - Installation script: `curl | sh`
 - Docker image option (for non-macOS users)
 
-#### 6. Other Concept Explorations
+#### 6. Task & Work Prioritization
+
+Analyze and prioritize development tasks based on technical and business factors.
+
+**Use Cases**:
+- "Prioritize TODOs in this file based on impact"
+- "Sort GitHub issues by technical risk"
+- "Which refactoring tasks should I tackle first?"
+- "Analyze sprint backlog and suggest priority order"
+
+**Input Sources**:
+- TODO comments in codebase
+- GitHub issues (via gh CLI)
+- Project markdown files (ROADMAP.md, BACKLOG.md)
+- Architecture decision records
+
+**Recommended Models**:
+- **Primary**: `qwen2.5:7b` (4.7GB) - Strong reasoning capabilities
+- **Fallback**: `deepseek-coder-v2:8k` (8.6GB) - Code-aware (current default)
+- **Quick mode**: `llama3.2:3b` (2GB) - Simple prioritization
+
+**Prioritization Factors**:
+- **Dependencies**: Does this block other work?
+- **Impact**: Users affected, scope of change
+- **Complexity**: Time/effort estimate
+- **Risk**: Potential for bugs, security issues
+- **Technical debt**: Accruing interest over time?
+- **Business value**: Revenue, retention, user satisfaction
+
+**Example Usage**:
+```bash
+# Analyze TODOs in file
+echo '{
+  "file_path": "src/main.rs",
+  "meta": {"task": "prioritize_todos"}
+}' | local-brain
+
+# Output: Sorted list with reasoning
+{
+  "high_priority": [
+    {"line": 45, "reason": "Memory leak affects stability", "impact": "high"}
+  ],
+  "medium_priority": [
+    {"line": 78, "reason": "Performance optimization", "impact": "medium"}
+  ],
+  "low_priority": [
+    {"line": 120, "reason": "Code cleanup, no functional change", "impact": "low"}
+  ]
+}
+```
+
+**Limitations**:
+- Quality depends on context provided
+- Can't access external systems (JIRA, Linear) without integration
+- Best used as suggestion tool, not automated decision-maker
+- May benefit from multi-call consensus for complex prioritization
+
+**Why This Fits Local-Brain**:
+- Uses same infrastructure (Ollama, JSON I/O, subagent pattern)
+- Complements code review (decide what to review/fix first)
+- Keeps planning and decision-making local and private
+- Natural extension of existing capabilities
+
+#### 7. Other Concept Explorations
 - **Incremental analysis**: Only review changed files (git diff integration)
 - **Semantic search**: Find files by description, not just name
 - **Code metrics**: Track complexity over time
