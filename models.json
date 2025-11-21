@@ -1,0 +1,153 @@
+{
+  "models": [
+    {
+      "name": "qwen2.5-coder:3b",
+      "size_gb": 1.9,
+      "parameters": "3B",
+      "type": "code-specialized",
+      "strengths": [
+        "Fast inference",
+        "Code understanding",
+        "Syntax analysis",
+        "Simple refactoring suggestions"
+      ],
+      "best_for": [
+        "quick-review",
+        "syntax-check",
+        "code-smell-detection"
+      ],
+      "use_cases": [
+        "Pre-commit quick checks",
+        "Simple code reviews",
+        "Detecting obvious issues"
+      ],
+      "ram_requirement_mb": 2048,
+      "speed": "fast"
+    },
+    {
+      "name": "llama3.2:1b",
+      "size_gb": 1.3,
+      "parameters": "1B",
+      "type": "general-lightweight",
+      "strengths": [
+        "Very fast inference",
+        "Low memory footprint",
+        "Basic text understanding"
+      ],
+      "best_for": [
+        "summarization",
+        "simple-classification",
+        "quick-triage"
+      ],
+      "use_cases": [
+        "Quick file summaries",
+        "Basic documentation review",
+        "Rapid triage of large codebases"
+      ],
+      "ram_requirement_mb": 1536,
+      "speed": "very-fast"
+    },
+    {
+      "name": "phi3:mini",
+      "size_gb": 2.2,
+      "parameters": "3.8B",
+      "type": "efficient-general",
+      "strengths": [
+        "Efficient reasoning",
+        "Good instruction following",
+        "Balanced speed/quality",
+        "Microsoft optimized"
+      ],
+      "best_for": [
+        "general-review",
+        "documentation",
+        "moderate-complexity"
+      ],
+      "use_cases": [
+        "Documentation quality checks",
+        "General code review",
+        "Balanced performance tasks"
+      ],
+      "ram_requirement_mb": 2560,
+      "speed": "fast"
+    },
+    {
+      "name": "qwen2.5:3b",
+      "size_gb": 1.9,
+      "parameters": "3B",
+      "type": "general-reasoning",
+      "strengths": [
+        "Good reasoning",
+        "Natural language understanding",
+        "Context awareness",
+        "Multi-domain knowledge"
+      ],
+      "best_for": [
+        "requirements-analysis",
+        "design-review",
+        "documentation",
+        "prioritization"
+      ],
+      "use_cases": [
+        "Requirements prioritization",
+        "Design document review",
+        "Feature planning analysis",
+        "Business logic review"
+      ],
+      "ram_requirement_mb": 2048,
+      "speed": "fast"
+    },
+    {
+      "name": "deepseek-coder-v2:8k",
+      "size_gb": 8.9,
+      "parameters": "16B",
+      "type": "code-expert",
+      "strengths": [
+        "Deep code understanding",
+        "Complex pattern detection",
+        "Architectural insights",
+        "Security analysis",
+        "Best practices knowledge"
+      ],
+      "best_for": [
+        "thorough-review",
+        "security-audit",
+        "architecture-review",
+        "complex-refactoring"
+      ],
+      "use_cases": [
+        "Production code review",
+        "Security-critical analysis",
+        "Complex refactoring planning",
+        "Architectural decisions"
+      ],
+      "ram_requirement_mb": 9216,
+      "speed": "moderate"
+    }
+  ],
+  "task_mappings": {
+    "quick-review": "qwen2.5-coder:3b",
+    "syntax-check": "qwen2.5-coder:3b",
+    "summarize": "llama3.2:1b",
+    "triage": "llama3.2:1b",
+    "documentation": "phi3:mini",
+    "general-review": "phi3:mini",
+    "requirements": "qwen2.5:3b",
+    "prioritization": "qwen2.5:3b",
+    "design-review": "qwen2.5:3b",
+    "thorough-review": "deepseek-coder-v2:8k",
+    "security": "deepseek-coder-v2:8k",
+    "architecture": "deepseek-coder-v2:8k"
+  },
+  "default_model": "deepseek-coder-v2:8k",
+  "notes": {
+    "ram_constraint": "System has 16GB RAM. All models fit within constraint (total ~16.2GB when all loaded).",
+    "recommended_workflow": "Use small models (1-3B) for quick iterations, reserve 8K model for final reviews.",
+    "parallel_usage": "Can run multiple small models simultaneously without exceeding RAM limit.",
+    "speed_tiers": {
+      "very-fast": "< 10s for 300 line file",
+      "fast": "10-20s for 300 line file",
+      "moderate": "20-30s for 300 line file"
+    }
+  }
+}
