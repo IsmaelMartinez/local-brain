@@ -138,8 +138,8 @@ echo '{"file_path": "/path/to/file"}' | ./target/release/local-brain | jq .
 ## Documentation
 
 - **[MODELS.md](MODELS.md)** - Complete guide to model selection and performance
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Technical specification and roadmap
-- **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization analysis
+- **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization and roadmap
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
 - **[models.json](models.json)** - Model registry and task mappings
 
 ## Development
