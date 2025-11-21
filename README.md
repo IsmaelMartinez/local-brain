@@ -1,185 +1,58 @@
 # Local Brain
 
-A Rust binary that offloads context and logic to local Ollama LLM models, optimized for Claude Code integration with minimal context usage. Supports code reviews, documentation analysis, summarization, and more.
+Offload context and logic to local Ollama LLM models for code reviews, documentation analysis, and more—optimized for Claude Code with minimal context usage.
+
+## What It Does
+
+- **Code Reviews**: Detect bugs, complexity, and refactoring opportunities
+- **Git Integration**: Review all changed files before committing
+- **Documentation Analysis**: Evaluate design docs, tickets, and technical writing
+- **Model Specialization**: Automatic model selection based on task type (1B-16B models)
 
 ## Quick Start
 
-### Prerequisites
-
-- Rust 1.70+ (`rustup`)
-- Ollama (`ollama.ai`)
-- An LLM model: `ollama pull deepseek-coder-v2-8k`
-
-### Build & Run
-
 ```bash
-# Build
-cargo build --release
+# Install: See detailed instructions
+👉 [INSTALLATION.md](INSTALLATION.md)
 
-# Test
-echo '{"file_path":"src/main.rs","meta":{"kind":"code","review_focus":"refactoring"}}' | ./target/release/local-brain
-```
+# First review: 5-minute tutorial
+👉 [QUICKSTART.md](QUICKSTART.md)
 
-### Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint |
-| `MODEL_NAME` | From `models.json` | Fallback model (deprecated, use CLI flags) |
-
-### Model Selection
-
-Local Brain supports multiple Ollama models with automatic selection based on task type. Model selection priority:
-
-1. **CLI `--model` flag** (highest priority)
-2. **JSON `ollama_model` field**
-3. **CLI `--task` flag** (maps to model via `models.json`)
-4. **Default model** from `models.json`
-
-#### Usage Examples
-
-```bash
-# Explicit model selection
-echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain --model qwen2.5-coder:3b
-
-# Task-based automatic selection
+# Quick example
 echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain --task quick-review
+```
 
-# JSON override (highest priority after --model)
-echo '{"file_path":"src/main.rs","ollama_model":"phi3:mini"}' | ./target/release/local-brain
+## Key Features
 
-# Default model (from models.json)
-echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
+**Model Selection**: Choose the right model for each task
+- Fast feedback: `llama3.2:1b` (1-2 seconds)
+- Balanced review: `qwen2.5-coder:3b` (5 seconds)
+- Deep analysis: `deepseek-coder-v2:16b` (20 seconds)
 
-# Git Diff Integration - review all changed files
+**Git Diff Integration**: Review changed files with one command
+```bash
 ./target/release/local-brain --git-diff --task quick-review
 ```
 
-### Git Diff Integration
+**Claude Code Integration**: Lightweight subagent keeps context minimal (~600 tokens vs 5500+)
 
-Review all changed files in your git repository with a single command:
-
-```bash
-# Review all changed files (staged or unstaged)
-./target/release/local-brain --git-diff --task quick-review
-
-# Use specific model for git diff review
-./target/release/local-brain --git-diff --model qwen2.5-coder:3b
-
-# Use default model
-./target/release/local-brain --git-diff
-```
-
-**Behavior**:
-- First checks for staged files (`git diff --cached`)
-- If no staged files, reviews all unstaged changes (`git diff`)
-- Reviews each changed file individually
-- Aggregates results with filename context
-- Perfect for pre-commit reviews
-
-**Use Cases**:
-- Pre-commit reviews: `./target/release/local-brain --git-diff --task quick-review`
-- Security check before push: `./target/release/local-brain --git-diff --task security`
-- Quick sanity check: `./target/release/local-brain --git-diff --task syntax-check`
-
-#### Available Tasks
-
-| Task | Recommended Model | Use Case |
-|------|------------------|----------|
-| `quick-review` | `qwen2.5-coder:3b` | Fast code checks, syntax analysis |
-| `syntax-check` | `qwen2.5-coder:3b` | Simple code smell detection |
-| `summarize` | `llama3.2:1b` | Quick file summaries |
-| `triage` | `llama3.2:1b` | Rapid codebase assessment |
-| `documentation` | `phi3:mini` | Documentation quality review |
-| `general-review` | `phi3:mini` | Balanced code review |
-| `requirements` | `qwen2.5:3b` | Requirements analysis |
-| `prioritization` | `qwen2.5:3b` | Task prioritization |
-| `design-review` | `qwen2.5:3b` | Design document review |
-| `thorough-review` | `deepseek-coder-v2:8k` | Deep code analysis (default) |
-| `security` | `deepseek-coder-v2:8k` | Security-focused review |
-| `architecture` | `deepseek-coder-v2:8k` | Architectural analysis |
-
-**Model Registry**: See `models.json` for complete model specifications and RAM requirements.
-
-## How It Works
-
-The binary receives a **file path** (not content), reads the file, calls Ollama for processing, and returns structured JSON:
-
-```json
-{
-  "spikes": [...],           // Areas to investigate
-  "simplifications": [...],   // Refactoring opportunities
-  "defer_for_later": [...],   // Low priority items
-  "other_observations": [...]  // General notes
-}
-```
-
-This design keeps both main Claude conversation and subagent contexts minimal (~600 tokens vs 5500+).
-
-## Performance
-
-| File Size | Processing Time | Quality |
-|-----------|----------------|---------|
-| 100 lines | ~27s | Detailed insights |
-| 300 lines | ~17s | Comprehensive |
-| 800 lines | ~23s | Processed successfully |
-
-**Recommended**: 100-500 lines for optimal results
-
-## Claude Code Integration
-
-A skill file is provided at `.claude/skills/local-brain/skill.md` for integration.
-
-**Usage**:
-```bash
-echo '{"file_path": "/path/to/file"}' | ./target/release/local-brain | jq .
-```
+**Structured Output**: Returns actionable JSON with spikes, simplifications, and observations
 
 ## Documentation
 
-- **[MODELS.md](MODELS.md)** - Complete guide to model selection and performance
-- **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization and roadmap
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
-- **[models.json](models.json)** - Model registry and task mappings
+- [Installation Guide](INSTALLATION.md) - System setup and prerequisites
+- [Quick Start Tutorial](QUICKSTART.md) - 5-minute walkthrough with examples
+- [Model Selection Guide](MODELS.md) - Choose the right model for your task
+- [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
+- [Contributing](CONTRIBUTING.md) - Development guide and architecture
 
-## Development
+## Performance
 
-```bash
-cargo build          # Debug build
-cargo test           # Run tests
-cargo build --release # Optimized build
-```
-
-## Testing
-
-### Integration Test
-
-Verify code smell detection with the integration test:
-
-```bash
-./tests/integration_test.sh
-```
-
-**Test File**: `tests/fixtures/code_smells.js` contains 5 intentional code smells:
-1. Deeply nested conditionals (validateUser)
-2. God function - too many responsibilities (processOrder)
-3. Magic numbers (calculateDiscount)
-4. Duplicate code (getUserBy* functions)
-5. Missing error handling (parseUserData)
-
-**Expected Result**: Model should detect 6+ issues across spikes, simplifications, and defer_for_later
-
-**Latest Run**: ✅ Detected 8 findings (2 spikes, 2 simplifications, 2 defer, 2 observations)
-
-## Known Issues & Solutions
-
-**Issue**: Model wraps JSON in markdown code fences despite explicit instructions
-**Solution**: Implemented `extract_json_from_markdown()` function (src/main.rs:240-260)
-**Status**: ✅ Resolved
-
-**Limitation**: Model may hallucinate when reviewing pure documentation files
-**Recommendation**: Best results with structured content (code, configs, technical docs)
-**Status**: Known limitation
+| File Size | Model | Time | Use Case |
+|-----------|-------|------|----------|
+| 100 lines | llama3.2:1b | ~2s | Quick sanity check |
+| 300 lines | qwen2.5-coder:3b | ~5s | Daily development |
+| 500 lines | deepseek-coder-v2:16b | ~20s | Security audit |
 
 ## License
 
