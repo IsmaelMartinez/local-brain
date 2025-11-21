@@ -2,16 +2,19 @@
 
 ## Current Status
 
-**Phase**: Implementation Complete - Ready for Validation Testing
+**Phase**: ✅ Production Ready - All Validations Complete
 
 | Component | Status |
 |-----------|--------|
-| Rust Binary | ✅ Complete (compiles, tests pass) |
-| Documentation | ✅ Complete (README, this plan) |
-| Validation Experiments | 📋 Not started |
-| Claude Code Integration | 📋 Not started |
+| Rust Binary | ✅ Complete (compiled, tested) |
+| Documentation | ✅ Complete (README, plans, validation) |
+| Validation Experiments | ✅ Complete (all tests passed) |
+| Claude Code Integration | ✅ Complete (skill file created) |
+| Binary Compilation | ✅ Complete (target/release/local-brain) |
 
 **Default Model**: `deepseek-coder-v2-8k`
+**Validation Date**: 2025-11-20
+**See**: [VALIDATION_RESULTS.md](VALIDATION_RESULTS.md) for detailed test results
 
 ---
 
@@ -775,6 +778,208 @@ Would you like me to start refactoring any of these areas?
 - **Memory efficiency**: File content only exists in binary process (disposable)
 - **Scalability**: Can review many files by passing multiple paths
 - **User experience**: Clean interface, no raw JSON visible
+
+---
+
+## Future Plans & Roadmap
+
+### Exploration Ideas
+These are potential directions for local-brain development. The focus is on being "clever enough, not clever" - practical improvements that add real value.
+
+#### 1. Model Specialization (Ollama-based)
+Explore targeted Ollama models for specific use cases:
+
+**Code Review & Analysis** (current default):
+- `deepseek-coder-v2:8k` (8.6GB) - Current default, excellent quality ✅
+- `qwen2.5-coder:7b` (4.7GB) - Alternative with lower RAM usage
+- `qwen2.5-coder:3b` (1.9GB) - Fast reviews for small files
+- `qwen2.5-coder:0.5b` (352MB) - Ultra-lightweight for quick scans
+
+**Content Summarization** (file/directory summaries):
+- `llama3.2:1b` (1.3GB) - Fast summaries, low RAM
+- `phi3:mini` (2.2GB) - Better quality summaries
+- `qwen2.5:3b` (1.9GB) - Good balance
+
+**PII & Sensitive Data Detection**:
+- `llama3.2:3b` (2GB) - Pattern matching for secrets/PII
+- `qwen2.5-coder:3b` (1.9GB) - Code-aware PII detection
+
+**Documentation Analysis & Tone Consistency**:
+- `qwen2.5:3b` (1.9GB) - Style guide enforcement
+- `phi3:mini` (2.2GB) - Grammar and tone analysis
+- Use case: "Review all docs and ensure consistent voice/tone"
+
+**Security & Vulnerability Scanning**:
+- `deepseek-coder-v2:8k` (8.6GB) - Deep security analysis
+- `qwen2.5-coder:7b` (4.7GB) - Security-focused alternative
+
+**Image Optimization Detection**:
+- Analyze repos for unoptimized images (large PNGs, uncompressed assets)
+- Could use lightweight file analysis + metadata check (no CV model needed initially)
+- Future: Add lightweight CV model via ONNX if needed
+
+**RAM Constraints** (16GB total):
+- System + apps: ~4-6GB
+- Available for Ollama: ~10-12GB
+- Safe limit: Models ≤ 8GB loaded
+- Current default (deepseek-coder-v2:8k @ 8.6GB) is at the limit ✅
+- Models ≥ 13B won't fit reliably
+
+**Rationale**: Different tasks have different requirements. A lightweight model can summarize files quickly, while security analysis needs the full 8B model. Ollama makes switching models trivial compared to HuggingFace.
+
+#### 2. Multi-Call Consensus Strategy
+Run multiple inference calls with different temperatures and aggregate results for higher quality output.
+
+**Concept**: Instead of one call at temperature 0.7, make 3-5 calls with varying temperatures and let the subagent synthesize the "best bits":
+- **Temperature 0.0**: Deterministic, factual, conservative
+- **Temperature 0.2**: Slight variation, still reliable
+- **Temperature 0.4**: More creative, catches edge cases
+
+**Implementation**:
+```rust
+// In local-brain binary
+let temperatures = vec![0.0, 0.2, 0.4];
+let mut responses = vec![];
+
+for temp in temperatures {
+    let response = call_ollama_with_temp(&prompt, temp)?;
+    responses.push(response);
+}
+
+// Return all responses to subagent
+serde_json::to_writer(io::stdout(), &MultiResponse {
+    calls: responses
+})?;
+```
+
+**Subagent Logic**:
+1. Receive 3 reviews from binary (one per temperature)
+2. Identify common issues (appear in 2+ responses) → high confidence
+3. Identify unique insights (appear in 1 response) → flag for validation
+4. Synthesize final review with confidence scores
+
+**Use Cases**:
+- **Critical security reviews**: Need multiple perspectives
+- **Architecture decisions**: Catch different trade-offs
+- **Documentation tone**: Consensus on style improvements
+
+**Trade-offs**:
+- 3x slower (but still local, no API costs)
+- 3x more context in subagent (but ephemeral)
+- Higher quality output for important tasks
+
+**Task-specific temperatures**:
+- **Code review**: 0.0, 0.1, 0.3 (want consistency)
+- **Documentation**: 0.2, 0.4, 0.6 (want creativity)
+- **Security**: 0.0, 0.1, 0.2 (want thoroughness, no hallucinations)
+- **Refactoring suggestions**: 0.3, 0.5, 0.7 (want diverse ideas)
+
+**When to use**:
+- User requests "thorough review"
+- Security-focused analysis
+- High-stakes code changes
+- First-time analysis of complex modules
+
+**When NOT to use**:
+- Quick file scans
+- Simple syntax checks
+- Repetitive tasks (linting, formatting)
+- Time-sensitive reviews
+
+#### 3. Directory & File Walking
+Add capability to analyze entire directories:
+- Recursive file tree traversal
+- Batch processing with progress tracking
+- Aggregate summaries at directory level
+- Filter by file type, size, or patterns
+
+**Use cases**:
+- "Review all .rs files in src/"
+- "Summarize what's in this component directory"
+- "Check all config files for issues"
+- "Find all unoptimized images in assets/"
+
+**Image Optimization Detection**:
+- Scan for large images (> 1MB)
+- Identify uncompressed PNGs that should be WebP
+- Check for missing compression
+- No CV model needed initially - just file metadata + simple heuristics
+
+#### 4. Targeted Model Selection
+Allow model choice based on task:
+- CLI flag: `--model <name>` or `--task <summarize|pii|security>`
+- Auto-select model based on review_focus
+- Model registry with task mappings
+- Support for different Ollama models per task
+
+**Example**:
+```bash
+# Use fast model for summary
+local-brain --task summarize input.json
+
+# Use security-focused model
+local-brain --task security input.json
+
+# Use multi-call consensus for thorough review
+local-brain --task security --consensus input.json
+```
+
+#### 5. Distribution & Installation
+Make local-brain easy to share and install, prioritizing the Claude Code plugin as the primary distribution method.
+
+**Priority 1: Claude Code Plugin (Skill)**
+- Create comprehensive installation guide for macOS
+- Document skill structure and configuration
+- Provide step-by-step setup with screenshots
+- Include example usage and common workflows
+- Troubleshooting section for common issues
+- Test on clean macOS installation
+
+**Additional Distribution Options**:
+- Pre-built binaries for macOS (arm64, x86_64)
+- GitHub releases with versioning
+- Homebrew formula for easy install
+- Installation script: `curl | sh`
+- Docker image option (for non-macOS users)
+
+#### 6. Other Concept Explorations
+- **Incremental analysis**: Only review changed files (git diff integration)
+- **Semantic search**: Find files by description, not just name
+- **Code metrics**: Track complexity over time
+- **Custom review templates**: User-defined focus areas
+- **Multi-language support**: Optimize prompts per programming language
+- **CI/CD integration**: Auto-review on PR creation
+- **Diff-based reviews**: Compare before/after changes
+- **Learning mode**: Improve prompts based on user feedback
+
+### Implementation Philosophy
+
+> "It's not about being that clever, just clever enough"
+
+**Guidelines**:
+- Focus on practical, measurable improvements
+- Prefer simple solutions over complex architectures
+- Each feature should solve a real problem
+- Keep the core binary fast and focused
+- Don't over-engineer - validate assumptions first
+- User experience > technical sophistication
+
+### Next Actions
+1. Validate current implementation with real-world usage
+2. Create Ollama model registry JSON file with RAM constraints
+3. Add `--model` and `--task` CLI flags for model selection
+4. Prototype multi-call consensus strategy for security reviews
+5. Add documentation tone consistency checking use case
+6. Test image optimization detection (file metadata approach)
+7. Create basic distribution pipeline (Claude Code plugin first)
+8. Document macOS plugin installation thoroughly
+
+### Model Testing Priorities
+Given 16GB RAM constraint, test these models first:
+1. `qwen2.5-coder:3b` (1.9GB) - Fast alternative to default
+2. `llama3.2:1b` (1.3GB) - Summarization testing
+3. `phi3:mini` (2.2GB) - Documentation tone analysis
+4. Keep `deepseek-coder-v2:8k` (8.6GB) as default for quality ✅
 
 ---
 
