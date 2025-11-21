@@ -108,7 +108,9 @@ fn build_prompt(
 
 You receive a document and metadata, and must produce a structured review.
 
-**CRITICAL**: You MUST output ONLY valid JSON matching this exact structure:
+**CRITICAL**: You MUST output ONLY raw JSON. No markdown, no code fences, no explanation. Just the JSON object starting with { and ending with }.
+
+The JSON must match this exact structure:
 {
   "spikes": [
     { "title": "string", "summary": "string", "lines": "optional string" }
@@ -208,10 +210,13 @@ fn call_ollama(system_msg: &str, user_msg: &str) -> Result<String> {
         anyhow::bail!("Ollama API returned error: {}", response.status());
     }
 
-    // Parse response
-    let ollama_response: OllamaResponse = response
-        .json()
-        .context("Failed to parse Ollama response")?;
+    // Get response text first for debugging
+    let response_text = response.text().context("Failed to read Ollama response")?;
+
+    // Try to parse into OllamaResponse
+    let ollama_response: OllamaResponse = serde_json::from_str(&response_text)
+        .context(format!("Failed to parse Ollama response. First 200 chars: {}",
+            &response_text.chars().take(200).collect::<String>()))?;
 
     Ok(ollama_response.message.content)
 }
@@ -227,12 +232,33 @@ fn parse_ollama_response(response: &str) -> Result<OutputPayload> {
     match serde_json::from_str::<OutputPayload>(response) {
         Ok(output) => Ok(output),
         Err(_) => {
-            // TODO: Implement JSON extraction/cleanup if needed
-            // For now, try to find JSON in the response
-            let cleaned = response.trim();
-            serde_json::from_str::<OutputPayload>(cleaned)
+            // Extract JSON from markdown code fences if present
+            let cleaned = extract_json_from_markdown(response);
+            serde_json::from_str::<OutputPayload>(&cleaned)
                 .context("Failed to parse Ollama response as JSON. Response may not be valid JSON.")
         }
+    }
+}
+
+/// Extract JSON from markdown code fences
+/// Handles formats like ```json\n{...}\n``` or ```\n{...}\n```
+fn extract_json_from_markdown(text: &str) -> String {
+    let trimmed = text.trim();
+
+    // Check if wrapped in markdown code fences
+    if trimmed.starts_with("```") {
+        // Remove opening fence (```json or ```)
+        let without_start = trimmed.strip_prefix("```json")
+            .or_else(|| trimmed.strip_prefix("```"))
+            .unwrap_or(trimmed);
+
+        // Remove closing fence
+        let without_end = without_start.strip_suffix("```")
+            .unwrap_or(without_start);
+
+        without_end.trim().to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 

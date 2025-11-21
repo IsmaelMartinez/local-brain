@@ -24,3 +24,6 @@ target
 # Added by cargo
 
 /target
+
+# Claude Code settings and local configuration
+.claude/
