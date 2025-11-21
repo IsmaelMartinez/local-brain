@@ -473,27 +473,27 @@ Keep responses concise and actionable. Your context stays minimal because you ne
 - [x] Add environment variable support (`OLLAMA_HOST`, `MODEL_NAME`)
 
 ### Phase 2: Testing
-- [ ] Test binary manually with sample JSON
-- [ ] Test with various document types (code, design-doc, ticket)
-- [ ] Test error cases (invalid JSON, Ollama down, malformed response)
-- [ ] Verify JSON output is valid and matches schema
-- [ ] Test with different Ollama models
-- [ ] Refine prompts until JSON output is stable
+- [x] Test binary manually with sample JSON
+- [x] Test with various document types (code, design-doc, ticket)
+- [x] Test error cases (invalid JSON, Ollama down, malformed response)
+- [x] Verify JSON output is valid and matches schema
+- [x] Test with different Ollama models
+- [x] Refine prompts until JSON output is stable
 
 ### Phase 3: Claude Code Integration
-- [ ] Create `.claude/skills/local-brain/` directory
-- [ ] Write skill.md with usage instructions
-- [ ] Test skill from Claude Code main conversation
+- [x] Create `.claude/skills/local-brain/` directory
+- [x] Write skill.md with usage instructions
+- [x] Test skill from Claude Code main conversation
 - [ ] Configure review-optimiser subagent
-- [ ] Test end-to-end: User → Subagent → Skill → Binary → Ollama → User
+- [x] Test end-to-end: User → Subagent → Skill → Binary → Ollama → User
 
 ### Phase 4: Documentation & Refinement
 - [x] Write README.md for the Rust binary
 - [x] Document installation and setup
 - [x] Document environment variables and configuration
 - [x] Add example usage and sample output
-- [ ] Create troubleshooting guide
-- [ ] Refine prompts based on real-world usage
+- [x] Create troubleshooting guide
+- [x] Refine prompts based on real-world usage
 
 ---
 
