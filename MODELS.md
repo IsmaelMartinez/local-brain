@@ -2,6 +2,31 @@
 
 Complete guide to choosing and using Ollama models with local-brain.
 
+## Getting Started
+
+**New to local-brain?** Start here:
+
+1. **Install one model** (see [INSTALLATION.md](INSTALLATION.md)):
+   ```bash
+   ollama pull qwen2.5-coder:3b  # 1.9GB - good for most tasks
+   ```
+
+2. **Try it out**:
+   ```bash
+   echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain --model qwen2.5-coder:3b
+   ```
+
+3. **Choose based on your need**:
+
+   - 🚀 **"I want fast feedback"** → `llama3.2:1b` (1-2 seconds)
+   - ⚖️ **"I need balanced speed/quality"** → `qwen2.5-coder:3b` (5-10 seconds)
+   - 🔍 **"I need thorough security review"** → `deepseek-coder-v2:16b` (20-30 seconds)
+   - 💾 **"I'm low on RAM"** → `llama3.2:1b` (only 1.5GB RAM)
+
+**Not sure?** Use `qwen2.5-coder:3b` for daily code reviews—it's the sweet spot.
+
+---
+
 ## Quick Reference
 
 ```bash
@@ -219,6 +244,55 @@ local-brain --task summarize        # Uses llama3.2:1b
 - `thorough-review`, `security`, `architecture` → deepseek-coder-v2:8k
 
 See `models.json` for complete task mappings.
+
+---
+
+## How Model Selection Works
+
+Local-brain uses a priority system to choose which model to use:
+
+**Priority Order** (highest to lowest):
+1. **CLI `--model` flag** - Explicit model override
+   ```bash
+   local-brain --model llama3.2:1b  # Always uses llama3.2:1b
+   ```
+
+2. **JSON `ollama_model` field** - Per-request override
+   ```bash
+   echo '{"file_path":"src/main.rs","ollama_model":"phi3:mini"}' | local-brain
+   ```
+
+3. **CLI `--task` flag** - Task-based automatic selection
+   ```bash
+   local-brain --task quick-review  # Uses qwen2.5-coder:3b (from models.json)
+   ```
+
+4. **Default model** - Falls back to deepseek-coder-v2:16b
+   ```bash
+   local-brain  # Uses default: deepseek-coder-v2:16b
+   ```
+
+**Examples**:
+
+```bash
+# CLI flag wins over everything
+local-brain --model llama3.2:1b --task security
+# Result: Uses llama3.2:1b (not deepseek-coder-v2:16b)
+
+# Task flag when no CLI model specified
+local-brain --task quick-review
+# Result: Uses qwen2.5-coder:3b (from task mapping)
+
+# JSON model field when no CLI flags
+echo '{"file_path":"test.rs","ollama_model":"phi3:mini"}' | local-brain --task security
+# Result: Uses phi3:mini (JSON wins over task)
+```
+
+**When to use each**:
+- Use `--model` for testing, debugging, or one-off overrides
+- Use `--task` for workflow automation (CI/CD, pre-commit hooks)
+- Use JSON `ollama_model` for per-file customization in batch scripts
+- Use default (no flags) for ad-hoc thorough reviews
 
 ---
 

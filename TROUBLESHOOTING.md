@@ -6,6 +6,9 @@ This guide covers common issues and their solutions when using local-brain.
 
 - [Installation Issues](#installation-issues)
 - [Runtime Errors](#runtime-errors)
+- [Task Flag Issues](#task-flag-issues)
+- [Git Diff Mode Issues](#git-diff-mode-issues)
+- [Model Selection Debugging](#model-selection-debugging)
 - [Model Issues](#model-issues)
 - [Performance Issues](#performance-issues)
 - [Integration Issues](#integration-issues)
@@ -98,6 +101,212 @@ echo '{"file_path":"/tmp/test.rs"}' | ./target/release/local-brain
 # Meta fields are optional
 echo '{"file_path":"/tmp/test.rs","meta":{"kind":"code"}}' | ./target/release/local-brain
 ```
+
+---
+
+## Task Flag Issues
+
+### Unknown Task Type
+
+**Error**: Task type not recognized or no output
+
+**Cause**: Invalid `--task` flag value
+
+**Solution**:
+```bash
+# Check available tasks in models.json
+cat models.json | jq '.task_mappings | keys'
+# Shows: ["quick-review", "security", "summarize", etc.]
+
+# Use valid task type
+./target/release/local-brain --task quick-review --git-diff
+
+# If unsure, use --model instead
+./target/release/local-brain --model qwen2.5-coder:3b --git-diff
+```
+
+### How to List Available Tasks
+
+**Question**: What tasks can I use with `--task`?
+
+**Solution**:
+```bash
+# View all task mappings
+cat models.json | jq '.task_mappings'
+
+# Common tasks:
+# - quick-review, syntax-check → qwen2.5-coder:3b
+# - summarize, triage → llama3.2:1b
+# - documentation, general-review → phi3:mini
+# - requirements, prioritization, design-review → qwen2.5:3b
+# - thorough-review, security, architecture → deepseek-coder-v2:16b
+```
+
+**See**: [MODELS.md](MODELS.md) for complete task documentation
+
+---
+
+## Git Diff Mode Issues
+
+### No Files Found
+
+**Error**: `Reviewing 0 changed file(s)...` or no output
+
+**Cause**: No staged or modified files in git repository
+
+**Solution**:
+```bash
+# Check git status
+git status
+
+# Check for staged files
+git diff --cached --name-only
+
+# Check for unstaged changes
+git diff --name-only
+
+# Make some changes first
+echo "// test" >> src/main.rs
+git add src/main.rs
+
+# Then run git-diff mode
+./target/release/local-brain --git-diff --task quick-review
+```
+
+### Permission Errors
+
+**Error**: `Failed to read file: Permission denied`
+
+**Cause**: Binary lacks permission to read changed files
+
+**Solution**:
+```bash
+# Check file permissions
+ls -la src/main.rs
+
+# Fix permissions
+chmod +r src/main.rs
+
+# Or run with appropriate user
+sudo -u youruser ./target/release/local-brain --git-diff
+```
+
+### Binary Files Included
+
+**Issue**: Git diff includes binary files (images, compiled files)
+
+**Behavior**: local-brain will attempt to read binary files but may produce errors
+
+**Solution**:
+```bash
+# Git diff filters binary files automatically with --diff-filter=ACMR
+# (Add, Copy, Modify, Rename - excludes deletions)
+
+# To exclude specific patterns, use .gitattributes
+echo "*.png binary" >> .gitattributes
+echo "*.jpg binary" >> .gitattributes
+echo "target/** binary" >> .gitattributes
+
+# Or filter manually
+git diff --name-only | grep -v "\.png$\|\.jpg$" | while read file; do
+    echo "{\"file_path\":\"$file\"}" | ./target/release/local-brain --model qwen2.5-coder:3b
+done
+```
+
+### Git Diff Shows Deleted Files
+
+**Issue**: Reviewing deleted files that no longer exist
+
+**Behavior**: local-brain uses `--diff-filter=ACMR` which excludes deletions (D flag)
+
+**If still seeing issues**:
+```bash
+# Manually verify filtered files
+git diff --cached --name-only --diff-filter=ACMR
+
+# Or use explicit filter
+git diff --name-only --diff-filter=AM  # Add + Modify only
+```
+
+---
+
+## Model Selection Debugging
+
+### Which Model Was Selected?
+
+**Question**: I'm not sure which model was actually used
+
+**Solution**:
+```bash
+# The binary doesn't log which model was selected (by design - clean stdout)
+# But you can infer from priority rules (see MODELS.md):
+
+# 1. CLI --model (highest priority)
+./target/release/local-brain --model llama3.2:1b
+# Used: llama3.2:1b
+
+# 2. JSON ollama_model field
+echo '{"file_path":"test.rs","ollama_model":"phi3:mini"}' | ./target/release/local-brain
+# Used: phi3:mini
+
+# 3. CLI --task flag
+./target/release/local-brain --task quick-review
+# Used: qwen2.5-coder:3b (from models.json task_mappings)
+
+# 4. Default
+./target/release/local-brain
+# Used: deepseek-coder-v2:16b (from models.json default_model)
+
+# To verify task mapping:
+cat models.json | jq '.task_mappings["quick-review"]'
+```
+
+### Override Priority Not Working
+
+**Issue**: Expected model not being used despite flags
+
+**Debug checklist**:
+
+1. **Check priority order** (CLI --model > JSON > --task > default):
+   ```bash
+   # This uses llama3.2:1b (CLI flag wins)
+   ./target/release/local-brain --model llama3.2:1b --task security
+
+   # This uses qwen2.5-coder:3b (task flag wins over default)
+   ./target/release/local-brain --task quick-review
+   ```
+
+2. **Verify model name is correct**:
+   ```bash
+   # List available models
+   ollama list
+
+   # Use exact name from list
+   ./target/release/local-brain --model qwen2.5-coder:3b  # Correct
+   # NOT: qwen2.5-coder  # Wrong (missing version tag)
+   ```
+
+3. **Check models.json**:
+   ```bash
+   # Verify task mapping exists
+   cat models.json | jq '.task_mappings'
+
+   # Verify default model
+   cat models.json | jq '.default_model'
+   ```
+
+4. **Test explicitly**:
+   ```bash
+   # Force specific model with CLI flag
+   ./target/release/local-brain --model llama3.2:1b < input.json
+
+   # Time it to confirm it's the fast model
+   time ./target/release/local-brain --model llama3.2:1b < input.json
+   # llama3.2:1b should be ~2-10s
+   # deepseek-coder-v2:16b should be ~20-30s
+   ```
+
+**See**: [MODELS.md - How Model Selection Works](MODELS.md#how-model-selection-works)
 
 ---
 
@@ -389,4 +598,4 @@ cat /tmp/input.json | ./target/release/local-brain 2>&1 | tee /tmp/output.log
 4. **Documentation files**: May hallucinate for pure text docs without structure
 5. **RAM constraints**: Models >8GB may not work on 16GB RAM systems
 
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for future improvements and roadmap.
+See [DOCUMENTATION_PLAN.md](internal/DOCUMENTATION_PLAN.md) for future improvements and roadmap.
