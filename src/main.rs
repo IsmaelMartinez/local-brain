@@ -259,8 +259,7 @@ fn get_git_changed_files() -> Result<Vec<PathBuf>> {
         .output()
         .context("Failed to execute git diff --cached")?;
 
-    let mut files = String::from_utf8(output.stdout)
-        .context("Invalid UTF-8 from git output")?;
+    let mut files = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
 
     // If no staged files, get all modified files
     if files.trim().is_empty() {
@@ -269,8 +268,7 @@ fn get_git_changed_files() -> Result<Vec<PathBuf>> {
             .output()
             .context("Failed to execute git diff")?;
 
-        files = String::from_utf8(output.stdout)
-            .context("Invalid UTF-8 from git output")?;
+        files = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
     }
 
     // Convert to PathBuf, filtering out empty lines
@@ -308,7 +306,11 @@ fn handle_directory(cli: &Cli) -> Result<()> {
     let files = collect_files_in_dir(dir, pattern)?;
 
     if files.is_empty() {
-        eprintln!("No files found matching pattern '{}' in {}", pattern, dir.display());
+        eprintln!(
+            "No files found matching pattern '{}' in {}",
+            pattern,
+            dir.display()
+        );
         return Ok(());
     }
 
@@ -358,9 +360,7 @@ fn matches_pattern(path: &PathBuf, pattern: &str) -> bool {
         return true;
     }
 
-    let filename = path.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if pattern.starts_with("*.") {
         // Handle *.rs
@@ -368,12 +368,14 @@ fn matches_pattern(path: &PathBuf, pattern: &str) -> bool {
         if ext.contains(',') || ext.contains('{') {
             // Handle *.{js,ts}
             let extensions: Vec<&str> = if ext.starts_with('{') && ext.ends_with('}') {
-                ext[1..ext.len()-1].split(',').collect()
+                ext[1..ext.len() - 1].split(',').collect()
             } else {
                 vec![ext]
             };
 
-            return extensions.iter().any(|e| filename.ends_with(&format!(".{}", e)));
+            return extensions
+                .iter()
+                .any(|e| filename.ends_with(&format!(".{}", e)));
         } else {
             return filename.ends_with(&format!(".{}", ext));
         }
@@ -487,18 +489,18 @@ fn select_model(cli: &Cli, payload: &InputPayload) -> Result<String> {
 fn load_model_from_task(task: &str) -> Result<String> {
     let registry = load_model_registry()?;
 
-    registry
-        .task_mappings
-        .get(task)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!(
+    registry.task_mappings.get(task).cloned().ok_or_else(|| {
+        anyhow::anyhow!(
             "Unknown task type: '{}'. Available tasks: {}",
             task,
-            registry.task_mappings.keys()
+            registry
+                .task_mappings
+                .keys()
                 .map(|k| k.as_str())
                 .collect::<Vec<_>>()
                 .join(", ")
-        ))
+        )
+    })
 }
 
 /// Load default model from registry
@@ -524,8 +526,7 @@ fn load_model_registry() -> Result<ModelRegistry> {
         })
         .context("Failed to read models.json. Ensure models.json exists in the current directory or next to the binary.")?;
 
-    serde_json::from_str(&models_json)
-        .context("Failed to parse models.json")
+    serde_json::from_str(&models_json).context("Failed to parse models.json")
 }
 
 // ============================================================================
@@ -533,11 +534,7 @@ fn load_model_registry() -> Result<ModelRegistry> {
 // ============================================================================
 
 /// Build system and user prompts for Ollama
-fn build_prompt(
-    document: &str,
-    filename: &str,
-    meta: &Option<Meta>,
-) -> Result<(String, String)> {
+fn build_prompt(document: &str, filename: &str, meta: &Option<Meta>) -> Result<(String, String)> {
     // System prompt explaining the JSON structure and review categories
     let system_prompt = r#"You are a senior code and document reviewer.
 
@@ -613,7 +610,8 @@ struct OllamaMessage {
 /// Call Ollama API with the given prompts
 fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<String> {
     // Get Ollama configuration from environment
-    let ollama_host = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
+    let ollama_host =
+        std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
 
     // Build request body
     let request_body = serde_json::json!({
@@ -648,9 +646,10 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
     let response_text = response.text().context("Failed to read Ollama response")?;
 
     // Try to parse into OllamaResponse
-    let ollama_response: OllamaResponse = serde_json::from_str(&response_text)
-        .context(format!("Failed to parse Ollama response. First 200 chars: {}",
-            &response_text.chars().take(200).collect::<String>()))?;
+    let ollama_response: OllamaResponse = serde_json::from_str(&response_text).context(format!(
+        "Failed to parse Ollama response. First 200 chars: {}",
+        &response_text.chars().take(200).collect::<String>()
+    ))?;
 
     Ok(ollama_response.message.content)
 }
@@ -682,13 +681,13 @@ fn extract_json_from_markdown(text: &str) -> String {
     // Check if wrapped in markdown code fences
     if trimmed.starts_with("```") {
         // Remove opening fence (```json or ```)
-        let without_start = trimmed.strip_prefix("```json")
+        let without_start = trimmed
+            .strip_prefix("```json")
             .or_else(|| trimmed.strip_prefix("```"))
             .unwrap_or(trimmed);
 
         // Remove closing fence
-        let without_end = without_start.strip_suffix("```")
-            .unwrap_or(without_start);
+        let without_end = without_start.strip_suffix("```").unwrap_or(without_start);
 
         without_end.trim().to_string()
     } else {
