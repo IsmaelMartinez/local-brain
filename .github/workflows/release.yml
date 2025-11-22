@@ -9,9 +9,29 @@ permissions:
   contents: write
 
 jobs:
+  # Run tests before releasing
+  test:
+    name: Test before release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
   release:
     name: Release
+    needs: test
     runs-on: ubuntu-latest
+    # Only release from main branch
+    if: github.event.base_ref == 'refs/heads/main' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
