@@ -22,6 +22,25 @@ Output includes:
 
 Reviews all staged files (or unstaged if nothing staged).
 
+## Review Directories
+
+```bash
+# Review all Rust files in src/
+./target/release/local-brain --dir src --pattern "*.rs"
+
+# Review all JavaScript/TypeScript files
+./target/release/local-brain --dir app --pattern "*.{js,ts}"
+
+# Review all files (no pattern filter)
+./target/release/local-brain --dir lib
+```
+
+## Review Multiple Files
+
+```bash
+./target/release/local-brain --files src/main.rs,src/lib.rs,tests/integration.rs
+```
+
 ## Choose a Model
 
 ```bash

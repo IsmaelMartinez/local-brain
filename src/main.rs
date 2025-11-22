@@ -31,6 +31,18 @@ struct Cli {
     /// Review git diff (staged changes). If no files staged, reviews all changes.
     #[arg(long)]
     git_diff: bool,
+
+    /// Review all files in a directory matching pattern
+    #[arg(long)]
+    dir: Option<PathBuf>,
+
+    /// File pattern to match (e.g., "*.rs", "*.{js,ts}"). Requires --dir
+    #[arg(long)]
+    pattern: Option<String>,
+
+    /// Comma-separated list of files to review (e.g., "src/main.rs,src/lib.rs")
+    #[arg(long)]
+    files: Option<String>,
 }
 
 // ============================================================================
@@ -98,9 +110,20 @@ fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let cli = Cli::parse();
 
+    // Check which mode to use
     if cli.git_diff {
         // Git diff mode: review changed files
         return handle_git_diff(&cli);
+    }
+
+    if cli.files.is_some() {
+        // Files mode: review specific files
+        return handle_files(&cli);
+    }
+
+    if cli.dir.is_some() {
+        // Directory mode: review files in directory
+        return handle_directory(&cli);
     }
 
     // Normal mode: read from stdin
@@ -258,6 +281,176 @@ fn get_git_changed_files() -> Result<Vec<PathBuf>> {
         .collect();
 
     Ok(paths)
+}
+
+/// Handle --files mode: review comma-separated list of files
+fn handle_files(cli: &Cli) -> Result<()> {
+    let files_str = cli.files.as_ref().unwrap();
+
+    let file_paths: Vec<PathBuf> = files_str
+        .split(',')
+        .map(|s| PathBuf::from(s.trim()))
+        .collect();
+
+    if file_paths.is_empty() {
+        eprintln!("No files specified");
+        return Ok(());
+    }
+
+    review_multiple_files(cli, &file_paths)
+}
+
+/// Handle --dir mode: review files in directory matching pattern
+fn handle_directory(cli: &Cli) -> Result<()> {
+    let dir = cli.dir.as_ref().unwrap();
+    let pattern = cli.pattern.as_deref().unwrap_or("*");
+
+    let files = collect_files_in_dir(dir, pattern)?;
+
+    if files.is_empty() {
+        eprintln!("No files found matching pattern '{}' in {}", pattern, dir.display());
+        return Ok(());
+    }
+
+    review_multiple_files(cli, &files)
+}
+
+/// Collect files in directory matching glob pattern
+fn collect_files_in_dir(dir: &PathBuf, pattern: &str) -> Result<Vec<PathBuf>> {
+    use std::fs;
+
+    let mut matching_files = Vec::new();
+
+    // Walk directory recursively
+    fn visit_dirs(dir: &PathBuf, pattern: &str, files: &mut Vec<PathBuf>) -> Result<()> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir).context("Failed to read directory")? {
+                let entry = entry.context("Failed to read directory entry")?;
+                let path = entry.path();
+
+                if path.is_dir() {
+                    // Skip hidden directories and common ignore patterns
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if name.starts_with('.') || name == "target" || name == "node_modules" {
+                            continue;
+                        }
+                    }
+                    visit_dirs(&path, pattern, files)?;
+                } else if path.is_file() {
+                    // Check if file matches pattern
+                    if matches_pattern(&path, pattern) {
+                        files.push(path);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    visit_dirs(dir, pattern, &mut matching_files)?;
+    Ok(matching_files)
+}
+
+/// Simple pattern matching for file extensions
+fn matches_pattern(path: &PathBuf, pattern: &str) -> bool {
+    // Handle simple cases: *, *.rs, *.{js,ts}
+    if pattern == "*" {
+        return true;
+    }
+
+    let filename = path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    if pattern.starts_with("*.") {
+        // Handle *.rs
+        let ext = &pattern[2..];
+        if ext.contains(',') || ext.contains('{') {
+            // Handle *.{js,ts}
+            let extensions: Vec<&str> = if ext.starts_with('{') && ext.ends_with('}') {
+                ext[1..ext.len()-1].split(',').collect()
+            } else {
+                vec![ext]
+            };
+
+            return extensions.iter().any(|e| filename.ends_with(&format!(".{}", e)));
+        } else {
+            return filename.ends_with(&format!(".{}", ext));
+        }
+    }
+
+    // Default: exact match
+    filename == pattern
+}
+
+/// Review multiple files and aggregate results
+fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
+    eprintln!("Reviewing {} file(s)...", files.len());
+
+    let mut all_spikes = Vec::new();
+    let mut all_simplifications = Vec::new();
+    let mut all_defer = Vec::new();
+    let mut all_observations = Vec::new();
+
+    for file_path in files {
+        eprintln!("Reviewing: {}", file_path.display());
+
+        // Create payload for this file
+        let payload = InputPayload {
+            file_path: file_path.clone(),
+            meta: Some(Meta {
+                kind: Some("code".to_string()),
+                review_focus: Some("general".to_string()),
+            }),
+            ollama_model: None,
+        };
+
+        // Review the file
+        match review_file(cli, &payload) {
+            Ok(output) => {
+                // Add file context to each item
+                let file_name = file_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+
+                for mut spike in output.spikes {
+                    spike.title = format!("[{}] {}", file_name, spike.title);
+                    all_spikes.push(spike);
+                }
+
+                for mut simp in output.simplifications {
+                    simp.title = format!("[{}] {}", file_name, simp.title);
+                    all_simplifications.push(simp);
+                }
+
+                for mut defer in output.defer_for_later {
+                    defer.title = format!("[{}] {}", file_name, defer.title);
+                    all_defer.push(defer);
+                }
+
+                for obs in output.other_observations {
+                    all_observations.push(format!("[{}] {}", file_name, obs));
+                }
+            }
+            Err(e) => {
+                eprintln!("Error reviewing {}: {}", file_path.display(), e);
+            }
+        }
+    }
+
+    // Aggregate and output results
+    let aggregated = OutputPayload {
+        spikes: all_spikes,
+        simplifications: all_simplifications,
+        defer_for_later: all_defer,
+        other_observations: all_observations,
+    };
+
+    serde_json::to_writer(io::stdout(), &aggregated)
+        .context("Failed to write aggregated output JSON")?;
+
+    Ok(())
 }
 
 // ============================================================================
