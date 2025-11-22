@@ -1,7 +1,7 @@
 {
   "name": "local-brain",
   "version": "0.1.0",
-  "description": "Structured code review using local Ollama LLM models",
+  "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
   "author": {
     "name": "Ismael Martinez",
     "email": "ismaelmartinez@gmail.com"
