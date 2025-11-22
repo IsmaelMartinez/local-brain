@@ -1,18 +1,26 @@
-# Local Brain - Code Review Skill
+# Local Brain - Context Offloading Skill
 
-Use this skill when the user wants to perform structured code reviews using local LLM models via Ollama.
+Use this skill to delegate tasks to local Ollama LLM models, reducing context usage in the main agent. Ideal for routine analysis that doesn't need cloud-scale reasoning.
 
 ## When to Use
 
-- User asks to review code for issues, smells, or improvements
-- User wants to analyze code quality
-- User asks for refactoring suggestions
-- User wants to identify potential bugs or security issues
+**Offload these tasks to local models:**
+- Code reviews and quality analysis
+- Design document summaries
+- Ticket/issue triage and prioritization
+- Documentation analysis
+- Planning and task breakdown
+- Routine pattern matching (TODOs, code smells)
+
+**Keep in main agent:**
+- Complex multi-step reasoning
+- Tasks requiring broader codebase context
+- Security-critical decisions
 
 ## Prerequisites
 
-- **Ollama** must be running locally with at least one model
-- **local-brain** binary must be installed
+- **Ollama** running locally with at least one model
+- **local-brain** binary installed
 
 ### Installation
 
@@ -106,25 +114,37 @@ Returns JSON with structured findings:
 
 ## Examples
 
-### Quick Code Review
+### Code Review
 
 ```bash
-# Review current file for issues
+# Quick review for issues
 local-brain --task quick-review --files src/main.rs | jq .
-```
 
-### Security Audit
-
-```bash
-# Review auth code for security issues
+# Security audit
 local-brain --task security --dir src/auth --pattern "*.rs" | jq .
+
+# Review staged changes before commit
+local-brain --git-diff --task quick-review | jq .
 ```
 
-### Review Staged Changes
+### Document Analysis
 
 ```bash
-# Review what's about to be committed
-local-brain --git-diff --task quick-review | jq .
+# Summarize design docs
+local-brain --task summarize --files docs/architecture.md | jq .
+
+# Analyze requirements
+local-brain --task requirements --files specs/feature.md | jq .
+```
+
+### Planning & Triage
+
+```bash
+# Prioritize TODOs across codebase
+local-brain --task prioritization --dir src --pattern "*.rs" | jq .
+
+# Triage issues
+local-brain --task triage --files issues/backlog.md | jq .
 ```
 
 ### Format Output
