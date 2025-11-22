@@ -245,7 +245,7 @@ fn test_dir_pattern_matching() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Should contain .rs files but not .js
-    assert!(stdout.contains("file1.rs") || stdout.contains("file2.rs"));
+    assert!(stdout.contains("file1.rs") && stdout.contains("file2.rs"));
     assert!(!stdout.contains("file3.js"));
 }
 
