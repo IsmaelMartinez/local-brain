@@ -8,7 +8,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 // ============================================================================
@@ -255,7 +255,7 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
 fn get_git_changed_files() -> Result<Vec<PathBuf>> {
     // Try staged files first
     let output = Command::new("git")
-        .args(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+        .args(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
         .output()
         .context("Failed to execute git diff --cached")?;
 
@@ -264,7 +264,7 @@ fn get_git_changed_files() -> Result<Vec<PathBuf>> {
     // If no staged files, get all modified files
     if files.trim().is_empty() {
         let output = Command::new("git")
-            .args(&["diff", "--name-only", "--diff-filter=ACMR"])
+            .args(["diff", "--name-only", "--diff-filter=ACMR"])
             .output()
             .context("Failed to execute git diff")?;
 
@@ -354,7 +354,7 @@ fn collect_files_in_dir(dir: &PathBuf, pattern: &str) -> Result<Vec<PathBuf>> {
 }
 
 /// Simple pattern matching for file extensions
-fn matches_pattern(path: &PathBuf, pattern: &str) -> bool {
+fn matches_pattern(path: &Path, pattern: &str) -> bool {
     // Handle simple cases: *, *.rs, *.{js,ts}
     if pattern == "*" {
         return true;
@@ -362,9 +362,8 @@ fn matches_pattern(path: &PathBuf, pattern: &str) -> bool {
 
     let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-    if pattern.starts_with("*.") {
+    if let Some(ext) = pattern.strip_prefix("*.") {
         // Handle *.rs
-        let ext = &pattern[2..];
         if ext.contains(',') || ext.contains('{') {
             // Handle *.{js,ts}
             let extensions: Vec<&str> = if ext.starts_with('{') && ext.ends_with('}') {

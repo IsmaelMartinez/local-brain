@@ -47,8 +47,34 @@ git commit -m "chore: bump version to vX.Y.Z"
 git push origin main
 ```
 
-### 4. Create and Push Tag
+### 4. Create Release with GitHub CLI
 
+Using `gh` CLI (recommended):
+
+```bash
+# Create release with tag (triggers release workflow automatically)
+gh release create vX.Y.Z \
+  --title "Release vX.Y.Z" \
+  --notes "Release notes here" \
+  --draft
+
+# Or generate notes automatically from commits
+gh release create vX.Y.Z \
+  --title "Release vX.Y.Z" \
+  --generate-notes \
+  --draft
+```
+
+**Note**: Using `--draft` allows you to review before publishing. The workflow will still build binaries.
+
+When ready to publish:
+```bash
+gh release edit vX.Y.Z --draft=false
+```
+
+### Alternative: Manual Tag Push
+
+If you prefer manual workflow:
 ```bash
 # Create annotated tag
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
@@ -59,50 +85,80 @@ git push origin vX.Y.Z
 
 ### 5. Monitor Release Workflow
 
-1. Go to: https://github.com/IsmaelMartinez/local-brain/actions
-2. Watch the "Release" workflow run
-3. Wait for all platform builds to complete (~10-15 minutes)
+```bash
+# Watch workflow status
+gh run watch
+
+# Or view in browser
+gh run list --limit 5
+```
+
+Or visit: https://github.com/IsmaelMartinez/local-brain/actions
 
 ### 6. Verify Release
 
-1. Check: https://github.com/IsmaelMartinez/local-brain/releases
-2. Verify all platform binaries are attached:
-   - `local-brain-x86_64-apple-darwin.tar.gz`
-   - `local-brain-aarch64-apple-darwin.tar.gz`
-   - `local-brain-x86_64-unknown-linux-gnu.tar.gz`
-   - `local-brain-x86_64-pc-windows-msvc.zip`
-3. Check SHA256 checksums are included
-4. Review auto-generated release notes
+```bash
+# View release details
+gh release view vX.Y.Z
 
-### 7. Edit Release Notes (Optional)
+# Download and test binaries
+gh release download vX.Y.Z
+```
 
-If needed, edit the release on GitHub to:
-- Add highlights
-- Link to issues/PRs
-- Add migration guide for breaking changes
-- Add known issues
+Verify all platform binaries are attached:
+- `local-brain-x86_64-apple-darwin.tar.gz`
+- `local-brain-aarch64-apple-darwin.tar.gz`
+- `local-brain-x86_64-unknown-linux-gnu.tar.gz`
+- `local-brain-x86_64-pc-windows-msvc.zip`
+
+### 7. Edit Release Notes
+
+```bash
+# Edit release notes
+gh release edit vX.Y.Z --notes "Updated release notes"
+
+# Or open in editor
+gh release edit vX.Y.Z
+```
 
 ## Troubleshooting
 
 **Workflow fails:**
-- Check GitHub Actions logs
-- Verify Cargo.toml syntax is valid
-- Ensure all tests pass: `cargo test --all-features`
+```bash
+# View failed run logs
+gh run view --log-failed
+
+# Re-run failed jobs
+gh run rerun <run-id> --failed
+```
 
 **Missing platform binary:**
-- Re-run failed workflow job from GitHub Actions UI
+```bash
+# Re-run specific workflow
+gh run rerun <run-id>
+```
 
 **Tag already exists:**
 ```bash
-# Delete local tag
+# Delete release and tag
+gh release delete vX.Y.Z --yes
 git tag -d vX.Y.Z
-
-# Delete remote tag
 git push origin :refs/tags/vX.Y.Z
 
-# Recreate and push
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
+# Recreate
+gh release create vX.Y.Z --generate-notes
+```
+
+**View workflow logs:**
+```bash
+# List recent runs
+gh run list --workflow=release.yml
+
+# View specific run
+gh run view <run-id>
+
+# Download logs
+gh run view <run-id> --log
 ```
 
 ## Publishing to crates.io (Future)
