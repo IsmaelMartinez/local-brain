@@ -274,3 +274,20 @@
 - Current Rust binary is faster and more portable
 
 **Recommendation**: Keep Rust. The separation of binary (tool) and plugin files (Claude instructions) is by design.
+
+### Auto-Install via SessionStart Hook
+
+**Implemented**: Binary auto-downloads on first session via SessionStart hook.
+
+**How it works**:
+1. User runs `/plugin install local-brain`
+2. On first Claude Code session, hook runs `scripts/install.sh`
+3. Script detects platform (macOS/Linux/Windows, Intel/ARM)
+4. Downloads correct binary from GitHub Releases
+5. Installs to `~/.local/bin`
+
+**User experience**: True one-command installation - no manual binary download needed.
+
+**Files added**:
+- `.claude-plugin/scripts/install.sh` - Platform-aware install script
+- Updated `plugin.json` with SessionStart hook configuration
