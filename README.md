@@ -40,6 +40,17 @@ cd local-brain
 cargo build --release
 ```
 
+### Option 5: Claude Code Plugin
+```bash
+# Add as a marketplace
+/plugin marketplace add IsmaelMartinez/local-brain
+
+# Install the plugin
+/plugin install local-brain
+```
+
+Claude will automatically use local-brain for code review tasks.
+
 See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
 
 ## Quick Start
