@@ -40,6 +40,17 @@ cd local-brain
 cargo build --release
 ```
 
+### Option 5: Claude Code Plugin
+```bash
+# Add as a marketplace
+/plugin marketplace add IsmaelMartinez/local-brain
+
+# Install the plugin
+/plugin install local-brain
+```
+
+Claude will automatically use local-brain to offload routine tasks (code review, doc analysis, planning) to local models.
+
 See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
 
 ## Quick Start
@@ -63,9 +74,11 @@ local-brain --files src/main.rs,src/lib.rs
 
 ## Models
 
-- `llama3.2:1b` - Fast (2s)
-- `qwen2.5-coder:3b` - Balanced (5s)
-- `deepseek-coder-v2:16b` - Thorough (20s)
+Optimized for 16GB RAM systems:
+
+- `llama3.2:1b` - Fast, simple tasks (2s)
+- `qwen2.5-coder:3b` - Balanced, code-focused (5s)
+- `phi3:mini` - Good quality, low memory (8s)
 
 See [MODELS.md](MODELS.md) for details.
 

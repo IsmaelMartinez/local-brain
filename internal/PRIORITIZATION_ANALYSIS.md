@@ -250,8 +250,44 @@
 - ✅ Claude Code skill updated for distributed binary
 - ✅ Installation instructions for 4 methods
 - ✅ Release process documented
+- ✅ Claude Code plugin structure (.claude-plugin/)
+- ✅ Integration tests with --dry-run mode
 
 **Ready for**:
 - First tagged release (v0.1.0)
 - Community distribution
 - User feedback collection
+
+### Plugin Distribution Consideration
+
+**Question**: Can skills be distributed with the Rust binary, or should we move to Python/TS?
+
+**Finding**: Current approach works well:
+- **Binary**: Rust compiles to standalone executable (fast, no runtime deps)
+- **Plugin files**: `.claude-plugin/plugin.json` and `SKILL.md` must be separate files
+- **Installation**: Users add repo as marketplace, plugin files are discovered automatically
+- **No migration needed**: Rust binary + plugin files in same repo is the intended pattern
+
+**Why not Python/TS**:
+- Would add runtime dependencies (Python/Node)
+- No benefit for plugin discovery (still needs separate SKILL.md files)
+- Current Rust binary is faster and more portable
+
+**Recommendation**: Keep Rust. The separation of binary (tool) and plugin files (Claude instructions) is by design.
+
+### Auto-Install via SessionStart Hook
+
+**Implemented**: Binary auto-downloads on first session via SessionStart hook.
+
+**How it works**:
+1. User runs `/plugin install local-brain`
+2. On first Claude Code session, hook runs `scripts/install.sh`
+3. Script detects platform (macOS/Linux/Windows, Intel/ARM)
+4. Downloads correct binary from GitHub Releases
+5. Installs to `~/.local/bin`
+
+**User experience**: True one-command installation - no manual binary download needed.
+
+**Files added**:
+- `.claude-plugin/scripts/install.sh` - Platform-aware install script
+- Updated `plugin.json` with SessionStart hook configuration

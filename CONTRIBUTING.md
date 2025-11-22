@@ -197,10 +197,16 @@ cargo test -- --nocapture
 ### Integration Tests
 
 ```bash
-# End-to-end test with fixtures
+# Run all integration tests (uses --dry-run, no Ollama needed)
+cargo test --test integration
+
+# End-to-end test with fixtures (requires Ollama)
 ./tests/integration_test.sh
 
-# Manual test with real files
+# Manual test with dry-run
+./target/release/local-brain --dry-run --files src/main.rs
+
+# Manual test with real files (requires Ollama)
 echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain | jq .
 
 # Test git diff mode
@@ -316,6 +322,61 @@ Releases follow semantic versioning (MAJOR.MINOR.PATCH):
 - **MAJOR**: Breaking changes (e.g., output structure change)
 - **MINOR**: New features (e.g., new CLI flag)
 - **PATCH**: Bug fixes (e.g., JSON parsing fix)
+
+### Automated Release Pipeline
+
+Releases are automated via GitHub Actions. When you push a version tag from the `main` branch:
+
+1. **Tests run first** - `cargo test --all-features` and `cargo clippy`
+2. **Main branch check** - Releases only happen from tags on `main`
+3. **Cross-platform builds** - Binaries built for macOS (Intel/ARM), Linux, and Windows
+4. **GitHub Release created** - Binaries uploaded automatically
+
+### Creating a Release
+
+```bash
+# 1. Ensure you're on main with latest changes
+git checkout main
+git pull origin main
+
+# 2. Update version in Cargo.toml
+# version = "0.2.0"
+
+# 3. Commit version bump
+git add Cargo.toml Cargo.lock
+git commit -m "Bump version to 0.2.0"
+
+# 4. Create and push tag
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin main
+git push origin v0.2.0
+
+# 5. Monitor GitHub Actions for release completion
+```
+
+### Testing Without Ollama
+
+Use `--dry-run` to test the full pipeline without calling Ollama:
+
+```bash
+# Test file review
+./target/release/local-brain --dry-run --files src/main.rs
+
+# Test directory review
+./target/release/local-brain --dry-run --dir src --pattern "*.rs"
+
+# Output shows what would be sent to Ollama
+```
+
+### Release Checklist
+
+- [ ] All tests pass (`cargo test --all-features`)
+- [ ] No clippy warnings (`cargo clippy -- -D warnings`)
+- [ ] Version bumped in Cargo.toml
+- [ ] CHANGELOG updated (if maintained)
+- [ ] Tag created from `main` branch
+- [ ] GitHub Actions release completed successfully
+- [ ] Binaries downloadable from GitHub Releases
 
 ## Getting Help
 
