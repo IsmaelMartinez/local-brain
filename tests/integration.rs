@@ -131,7 +131,7 @@ fn test_multiple_files_aggregation() {
 
     // Should have observations from both files
     let observations = parsed["other_observations"].as_array().unwrap();
-    assert!(observations.len() >= 8, "Should have observations from both files");
+    assert_eq!(observations.len(), 8, "Should have observations from both files");
 }
 
 // ============================================================================
