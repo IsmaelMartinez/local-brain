@@ -1,0 +1,28 @@
+{
+  "name": "local-brain",
+  "displayName": "Local Brain",
+  "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ismael Martinez",
+    "email": "ismaelmartinez@gmail.com"
+  },
+  "homepage": "https://github.com/IsmaelMartinez/local-brain",
+  "repository": "https://github.com/IsmaelMartinez/local-brain",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "ollama",
+    "llm",
+    "rust",
+    "cli"
+  ],
+  "categories": [
+    "code-review",
+    "productivity"
+  ],
+  "requirements": {
+    "ollama": "Required - must have Ollama installed and running",
+    "models": "qwen2.5-coder:7b or similar code-focused model"
+  }
+}
