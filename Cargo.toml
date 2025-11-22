@@ -17,3 +17,13 @@ clap = { version = "4", features = ["derive"] }
 opt-level = 3
 lto = true
 codegen-units = 1
+strip = true
+panic = 'abort'
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"

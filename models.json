@@ -98,7 +98,7 @@
       "speed": "fast"
     },
     {
-      "name": "deepseek-coder-v2:8k",
+      "name": "deepseek-coder-v2-8k",
       "size_gb": 8.9,
       "parameters": "16B",
       "type": "code-expert",
@@ -135,11 +135,11 @@
     "requirements": "qwen2.5:3b",
     "prioritization": "qwen2.5:3b",
     "design-review": "qwen2.5:3b",
-    "thorough-review": "deepseek-coder-v2:8k",
-    "security": "deepseek-coder-v2:8k",
-    "architecture": "deepseek-coder-v2:8k"
+    "thorough-review": "deepseek-coder-v2-8k",
+    "security": "deepseek-coder-v2-8k",
+    "architecture": "deepseek-coder-v2-8k"
   },
-  "default_model": "deepseek-coder-v2:8k",
+  "default_model": "deepseek-coder-v2-8k",
   "notes": {
     "ram_constraint": "System has 16GB RAM. All models fit within constraint (total ~16.2GB when all loaded).",
     "recommended_workflow": "Use small models (1-3B) for quick iterations, reserve 8K model for final reviews.",

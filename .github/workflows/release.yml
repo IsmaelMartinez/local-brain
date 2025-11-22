@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: local-brain
+          tar: unix
+          zip: windows
+          include: LICENSE,README.md,INSTALLATION.md,QUICKSTART.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
