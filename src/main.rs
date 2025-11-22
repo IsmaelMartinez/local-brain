@@ -43,6 +43,10 @@ struct Cli {
     /// Comma-separated list of files to review (e.g., "src/main.rs,src/lib.rs")
     #[arg(long)]
     files: Option<String>,
+
+    /// Dry run mode: validate inputs and show what would be sent to Ollama without making the call
+    #[arg(long)]
+    dry_run: bool,
 }
 
 // ============================================================================
@@ -165,10 +169,25 @@ fn review_file(cli: &Cli, payload: &InputPayload) -> Result<OutputPayload> {
     // 3. Build Ollama prompt
     let (system_msg, user_msg) = build_prompt(&document, filename, &payload.meta)?;
 
-    // 4. Call Ollama API with selected model
+    // 4. Dry run mode: return mock output with validation info
+    if cli.dry_run {
+        return Ok(OutputPayload {
+            spikes: vec![],
+            simplifications: vec![],
+            defer_for_later: vec![],
+            other_observations: vec![
+                format!("DRY RUN - Model: {}", selected_model),
+                format!("DRY RUN - File: {} ({} bytes)", filename, document.len()),
+                format!("DRY RUN - System prompt: {} chars", system_msg.len()),
+                format!("DRY RUN - User prompt: {} chars", user_msg.len()),
+            ],
+        });
+    }
+
+    // 5. Call Ollama API with selected model
     let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
 
-    // 5. Parse response into OutputPayload
+    // 6. Parse response into OutputPayload
     parse_ollama_response(&response)
 }
 
