@@ -71,7 +71,7 @@ Available tasks: `quick-review`, `thorough-review`, `security`, `documentation`,
 ### Override Model
 
 ```bash
-local-brain --model deepseek-coder-v2:16b --files src/main.rs
+local-brain --model qwen2.5-coder:3b --files src/main.rs
 ```
 
 ### Dry Run (Test Without Ollama)
@@ -175,7 +175,7 @@ Start Ollama: `ollama serve`
 Error: model 'xyz' not found
 ```
 
-Pull the model: `ollama pull deepseek-coder-v2:16b`
+Pull a model: `ollama pull qwen2.5-coder:3b`
 
 ### No Output
 
