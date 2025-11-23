@@ -73,10 +73,16 @@ All code lives in `src/main.rs` (~600 lines):
 **Output Structure**:
 ```json
 {
-  "spikes": [{"description": "...", "location": "..."}],
-  "simplifications": [...],
-  "defer_for_later": [...],
-  "other_observations": ["..."]
+  "spikes": [
+    { "title": "string", "summary": "string", "lines": "optional string" }
+  ],
+  "simplifications": [
+    { "title": "string", "summary": "string" }
+  ],
+  "defer_for_later": [
+    { "title": "string", "summary": "string" }
+  ],
+  "other_observations": ["string", "string"]
 }
 ```
 
