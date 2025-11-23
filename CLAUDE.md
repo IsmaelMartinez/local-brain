@@ -53,14 +53,14 @@ echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
 ## Architecture
 
 ### Single-File Structure
-All code lives in `src/main.rs` (~600 lines):
-- CLI Arguments (lines 18-90): clap-based CLI with multiple modes
-- Data Structures (lines 96-150): InputPayload, OutputPayload, ModelRegistry
-- Main Flow (lines ~97-124): Entry point and mode selection
-- Model Selection (lines ~267-336): Priority: CLI flag > JSON > task > default
-- Prompt Building (lines ~343-403): System/user prompt construction
-- Ollama API (lines ~409-463): HTTP POST to /api/chat endpoint
-- Response Parsing (lines ~469-504): JSON extraction from markdown
+All code lives in `src/main.rs`:
+- CLI Arguments: clap-based CLI with multiple modes
+- Data Structures: InputPayload, OutputPayload, ModelRegistry
+- Main Flow: Entry point and mode selection
+- Model Selection: Priority: CLI flag > JSON > task > default
+- Prompt Building: System/user prompt construction
+- Ollama API: HTTP POST to /api/chat endpoint
+- Response Parsing: JSON extraction from markdown
 
 ### Key Components
 
@@ -122,7 +122,7 @@ When user asks "review this file":
 4. Test: `./target/release/local-brain --model model:tag --files test.rs`
 
 ### Adding CLI Flags
-1. Update `Cli` struct in main.rs:18-90
+1. Update `Cli` struct in main.rs
 2. Handle in `main()` or appropriate function
 3. Update README.md help text
 4. Add test coverage
@@ -135,7 +135,7 @@ When user asks "review this file":
 
 ## Testing Strategy
 
-- Unit tests at bottom of main.rs (lines ~510+)
+- Unit tests at bottom of main.rs
 - Integration test: `tests/integration_test.sh`
 - Use `--dry-run` to test without Ollama
 - Manual verification: pipe to `jq` to validate JSON
