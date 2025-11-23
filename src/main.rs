@@ -18,7 +18,47 @@ use std::process::Command;
 /// Command-line interface for local-brain
 #[derive(Parser, Debug)]
 #[command(name = "local-brain")]
-#[command(about = "A tool for structured code review using local Ollama LLM models", long_about = None)]
+#[command(version)]
+#[command(
+    about = "A tool for structured code review using local Ollama LLM models",
+    long_about = "Local Brain: Structured Code Review with Local LLMs
+
+Local Brain uses Ollama (https://ollama.ai) to perform structured code reviews
+locally without sending code to external services. It provides JSON output with
+categorized feedback: spikes (critical issues), simplifications, items to defer,
+and general observations.
+
+MODES:
+  stdin (default)  - Read JSON input from stdin with file path and metadata
+  --git-diff       - Review all changed files in git (staged or unstaged)
+  --files          - Review specific files from a comma-separated list
+  --dir            - Review all files in a directory matching a pattern
+
+EXAMPLES:
+
+  Basic usage with stdin (pipe JSON input):
+    echo '{\"file_path\": \"src/main.rs\", \"meta\": {\"kind\": \"code\"}}' | local-brain
+
+  Review git changes:
+    local-brain --git-diff
+
+  Review specific files:
+    local-brain --files \"src/main.rs,src/lib.rs\"
+
+  Review all Rust files in src/:
+    local-brain --dir src --pattern \"*.rs\"
+
+  Use specific model:
+    local-brain --model \"deepseek-coder-v2\" --files \"src/main.rs\"
+
+  Use task-based model selection:
+    local-brain --task \"security\" --files \"auth.rs\"
+
+  Dry run (validate without calling Ollama):
+    local-brain --dry-run --files \"src/main.rs\"
+
+For more information, visit: https://github.com/IsmaelMartinez/local-brain"
+)]
 struct Cli {
     /// Explicit model name to use (e.g., "qwen2.5-coder:3b")
     #[arg(long)]
