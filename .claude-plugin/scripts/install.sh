@@ -33,12 +33,8 @@ case "$OS" in
         esac
         EXT="tar.gz"
         ;;
-    mingw*|msys*|cygwin*)
-        TARGET="x86_64-pc-windows-msvc"
-        EXT="zip"
-        ;;
     *)
-        echo "Unsupported OS: $OS"
+        echo "Unsupported OS: $OS (only macOS and Linux are supported)"
         exit 1
         ;;
 esac
