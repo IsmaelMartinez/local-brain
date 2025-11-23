@@ -247,6 +247,20 @@ These ADRs capture the rationale behind major design decisions and provide conte
    - Support for `**/*.rs` recursive patterns
    - `.gitignore` integration
 
+6. **Flexible Output Format** (4-6h, medium risk)
+   - **Problem**: Current JSON format (spikes/simplifications/defer_for_later/other_observations) is optimized for code review but limiting for other use cases
+   - **Example**: If user asks to "explain a file", structured categories are irrelevant - they need plain explanation
+   - **Consideration**: Should the tool support different output modes based on task type?
+     - Review mode: Current structured JSON (spikes, simplifications, etc.)
+     - Explain mode: Plain text or simplified JSON with just explanation
+     - Summary mode: High-level overview without categorization
+   - **Validation needed**:
+     - Test with real "explain this file" scenarios
+     - Evaluate if one-size-fits-all JSON is truly limiting UX
+     - Consider if `--output-format` flag would be useful
+   - **Trade-off**: More flexibility vs increased complexity in output parsing
+   - **Timeline**: After community validation reveals real use cases beyond code review
+
 **Recommendation**: Create first release immediately. Validate distribution system with real users. Address code quality issues. Then evaluate future features based on community feedback rather than assumptions.
 
 ---

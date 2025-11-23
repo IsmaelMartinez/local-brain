@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "local-brain",
-      "source": ".",
+      "source": "./",
       "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
       "version": "0.1.0",
       "homepage": "https://github.com/IsmaelMartinez/local-brain",
@@ -18,12 +18,11 @@
         "ollama",
         "llm",
         "rust",
-        "cli"
+        "cli",
+        "offload",
+        "delegation"
       ],
-      "categories": [
-        "code-review",
-        "productivity"
-      ]
+      "category": "productivity"
     }
   ]
 }
