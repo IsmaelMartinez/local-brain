@@ -18,9 +18,11 @@
         "ollama",
         "llm",
         "rust",
-        "cli"
+        "cli",
+        "offload",
+        "delegation"
       ],
-      "category": "code-review"
+      "category": "productivity"
     }
   ]
 }
