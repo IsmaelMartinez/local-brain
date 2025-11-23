@@ -82,7 +82,7 @@ All code lives in `src/main.rs` (~600 lines):
 
 **Model Selection** (`models.json`):
 - Task mappings: `--task quick-review` → `qwen2.5-coder:3b`
-- Default model: `deepseek-coder-v2:16b`
+- Default model: `deepseek-coder-v2-8k`
 - Override via `--model` flag or JSON `ollama_model` field
 
 ### Error Handling
