@@ -4,7 +4,7 @@
 
 - 8GB RAM minimum (16GB recommended)
 - 10GB disk space
-- macOS, Linux, or Windows (WSL2)
+- macOS or Linux
 
 ## Installation Methods
 
@@ -36,11 +36,6 @@ sudo mv local-brain /usr/local/bin/
 local-brain --version
 ```
 
-#### Windows
-1. Download `local-brain-x86_64-pc-windows-msvc.zip` from releases
-2. Extract `local-brain.exe`
-3. Add to PATH or move to a directory in PATH
-
 ### Option 2: Cargo Install
 
 Requires Rust toolchain installed.
@@ -67,8 +62,6 @@ cargo binstall local-brain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 
-# Windows: Download from https://rustup.rs/
-
 # Verify
 rustc --version  # Should be 1.70+
 ```
@@ -91,8 +84,6 @@ ollama serve
 
 # Linux
 curl -fsSL https://ollama.ai/install.sh | sh
-
-# Windows: Download from ollama.ai/download
 
 # Verify
 curl http://localhost:11434/api/tags

@@ -19,7 +19,6 @@ Offload context to local Ollama LLMs for code reviews and document analysis—op
 Download from [GitHub Releases](https://github.com/IsmaelMartinez/local-brain/releases) for your platform:
 - macOS (Intel/Apple Silicon)
 - Linux (x86_64)
-- Windows (x86_64)
 
 Extract and add to PATH.
 
