@@ -206,6 +206,18 @@
 
 ---
 
+## 📋 Architecture Decision Records
+
+Key architectural decisions have been documented as ADRs:
+
+- **[ADR-001: Model Hallucination Handling](adr/001-model-hallucination-handling.md)** - JSON extraction strategy and file type guidance (addresses VALIDATION.md Issues #1-2)
+- **[ADR-002: Plugin Distribution Architecture](adr/002-plugin-distribution-architecture.md)** - Rust binary + auto-install approach (clarifies distribution question)
+- **[ADR-003: Model Selection Priority System](adr/003-model-selection-priority-system.md)** - 4-level priority hierarchy (CLI > JSON > task > default)
+
+These ADRs capture the rationale behind major design decisions and provide context for future development.
+
+---
+
 ## 🎯 What's Next
 
 **Immediate Actions** (Highest Priority):
@@ -221,8 +233,8 @@
    - Discover what's missing vs what was assumed
 
 3. **Code quality improvements** (3-6h total)
-   - Extract duplicated aggregation logic
-   - Add test coverage
+   - Extract duplicated aggregation logic (150+ lines in src/main.rs)
+   - Add test coverage for core logic
    - Address code smells identified in analysis
 
 **Future Features** (After community validation):

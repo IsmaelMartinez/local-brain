@@ -5,12 +5,16 @@ This directory contains internal planning, analysis, and development documentati
 ## Contents
 
 ### Planning & Analysis
-- **[DOCUMENTATION_PLAN.md](DOCUMENTATION_PLAN.md)** - Documentation restructuring plan and roadmap
+- **[DOCUMENTATION_PLAN.md](DOCUMENTATION_PLAN.md)** - Documentation restructuring plan and roadmap (archived)
 - **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization and roadmap analysis
 
 ### Validation & Testing
-- **[VALIDATION_EXPERIMENTS.md](VALIDATION_EXPERIMENTS.md)** - Experimental validation plan and methodology
-- **[VALIDATION_RESULTS.md](VALIDATION_RESULTS.md)** - Validation test results and findings
+- **[VALIDATION.md](VALIDATION.md)** - Complete validation results and experiment plan
+
+### Architecture Decision Records (ADRs)
+- **[adr/001-model-hallucination-handling.md](adr/001-model-hallucination-handling.md)** - JSON extraction strategy and file type guidance
+- **[adr/002-plugin-distribution-architecture.md](adr/002-plugin-distribution-architecture.md)** - Rust binary + auto-install approach
+- **[adr/003-model-selection-priority-system.md](adr/003-model-selection-priority-system.md)** - 4-level priority hierarchy
 
 ## Purpose
 
