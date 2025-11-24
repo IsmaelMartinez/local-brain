@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Local Brain is a Rust CLI tool that performs structured code reviews using local Ollama LLM models. It's designed to offload routine review tasks from Claude Code to local models, minimizing context usage while providing JSON-structured output.
+Local Brain is a Rust CLI tool that performs structured code reviews using local Ollama LLM models. It's designed to offload routine review tasks from Claude Code to local models, minimizing context usage while providing Markdown-formatted output.
 
 ## Development Commands
 
@@ -34,13 +34,13 @@ cargo fmt
 
 ### Running Local Brain
 ```bash
-# Review file via stdin
-echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
+# Review specific files
+./target/release/local-brain --files "src/main.rs"
 
 # Review git changes
 ./target/release/local-brain --git-diff
 
-# Review specific files
+# Review multiple files
 ./target/release/local-brain --files "src/main.rs,src/lib.rs"
 
 # Review directory
@@ -48,6 +48,9 @@ echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
 
 # With specific model
 ./target/release/local-brain --model "qwen2.5-coder:3b" --files "src/main.rs"
+
+# With document type and review focus
+./target/release/local-brain --files "src/auth.rs" --kind code --review-focus security
 ```
 
 ## Architecture
@@ -55,47 +58,55 @@ echo '{"file_path":"src/main.rs"}' | ./target/release/local-brain
 ### Single-File Structure
 All code lives in `src/main.rs`:
 - CLI Arguments: clap-based CLI with multiple modes
-- Data Structures: InputPayload, OutputPayload, ModelRegistry
+- Data Structures: ModelRegistry (for model configuration)
 - Main Flow: Entry point and mode selection
-- Model Selection: Priority: CLI flag > JSON > task > default
-- Prompt Building: System/user prompt construction
+- Model Selection: Priority: CLI flag > task > default
+- Prompt Building: System/user prompt construction for Markdown output
 - Ollama API: HTTP POST to /api/chat endpoint
-- Response Parsing: JSON extraction from markdown
+- Response: Pass-through Markdown from LLM
 
 ### Key Components
 
-**Input Modes**:
-1. stdin: JSON with `file_path` and optional `meta` (kind, review_focus)
+**Input Modes** (all via CLI flags):
+1. `--files`: Comma-separated list of files
 2. `--git-diff`: Reviews all changed files in git
-3. `--files`: Comma-separated list of files
-4. `--dir` + `--pattern`: Directory walking with glob pattern
+3. `--dir` + `--pattern`: Directory walking with glob pattern
 
-**Output Structure**:
-```json
-{
-  "spikes": [
-    { "title": "string", "summary": "string", "lines": "optional string" }
-  ],
-  "simplifications": [
-    { "title": "string", "summary": "string" }
-  ],
-  "defer_for_later": [
-    { "title": "string", "summary": "string" }
-  ],
-  "other_observations": ["string", "string"]
-}
+**CLI Metadata Flags**:
+- `--kind`: Document type (code, design-doc, ticket, other)
+- `--review-focus`: Review focus (refactoring, readability, performance, risk, general)
+- `--model`: Override model selection
+- `--task`: Task-based model selection
+
+**Output Structure** (Markdown):
+```markdown
+# Code Review
+
+### filename.ext
+
+## Issues Found
+- **Title**: Description (lines: X-Y)
+
+## Simplifications
+- **Title**: Description
+
+## Consider Later
+- **Title**: Description
+
+## Other Observations
+- General note
 ```
 
 **Model Selection** (`models.json`):
 - Task mappings: `--task quick-review` → `qwen2.5-coder:3b`
 - Default model: `deepseek-coder-v2-8k`
-- Override via `--model` flag or JSON `ollama_model` field
+- Override via `--model` flag
 
 ### Error Handling
 - Uses `anyhow::Result` throughout
 - Context added with `.context("message")?`
 - User-facing messages via `eprintln!`
-- JSON output to stdout, diagnostics to stderr
+- Markdown output to stdout, diagnostics to stderr
 
 ## Claude Code Integration
 
@@ -109,9 +120,9 @@ Located in `.claude/skills/local-brain/SKILL.md`:
 ### Usage Pattern
 When user asks "review this file":
 1. Verify file exists
-2. Build JSON input with file_path and metadata
-3. Pipe to local-brain: `echo '[JSON]' | local-brain`
-4. Parse and present categorized findings
+2. Run local-brain with appropriate flags: `local-brain --files path/to/file`
+3. Add metadata flags if known: `--kind code --review-focus security`
+4. Parse Markdown output and present categorized findings
 
 ## Important Patterns
 
@@ -128,9 +139,9 @@ When user asks "review this file":
 4. Add test coverage
 
 ### Modifying Output Structure
-1. Update `OutputPayload` struct
-2. Update system prompt to include new field
-3. Update `.claude/skills/local-brain/SKILL.md`
+1. Update system prompt to modify Markdown section headings
+2. Update `.claude/skills/local-brain/SKILL.md` documentation
+3. Update test expectations for new format
 4. Run integration tests
 
 ## Testing Strategy
@@ -138,7 +149,7 @@ When user asks "review this file":
 - Unit tests at bottom of main.rs
 - Integration test: `tests/integration_test.sh`
 - Use `--dry-run` to test without Ollama
-- Manual verification: pipe to `jq` to validate JSON
+- Manual verification: check Markdown structure and sections
 
 ## Release Process
 
@@ -151,7 +162,7 @@ Automated via GitHub Actions on version tags from `main`:
 
 ## Dependencies
 
-- `serde`/`serde_json`: JSON serialization
+- `serde`/`serde_json`: Configuration (models.json) parsing
 - `reqwest`: HTTP client for Ollama API
 - `anyhow`: Error handling
 - `clap`: CLI parsing

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/IsmaelMartinez/local-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/IsmaelMartinez/local-brain/actions/workflows/ci.yml)
 
-Offload context to local Ollama LLMs for code reviews and document analysis—optimized for Claude Code integration.
+Offload context to local Ollama LLMs for code reviews and document analysis—outputs structured Markdown, optimized for Claude Code integration.
 
 ## What It Does
 
@@ -15,42 +15,22 @@ Offload context to local Ollama LLMs for code reviews and document analysis—op
 
 ## Installation
 
-### Option 1: Pre-built Binaries (Recommended)
-Download from [GitHub Releases](https://github.com/IsmaelMartinez/local-brain/releases) for your platform:
-- macOS (Intel/Apple Silicon)
-- Linux (x86_64)
+**Requirements**: Ollama running locally with at least one model pulled.
 
-Extract and add to PATH.
-
-### Option 2: Cargo Install
 ```bash
+# Quick install (macOS/Linux)
+curl -L https://github.com/IsmaelMartinez/local-brain/releases/latest/download/local-brain-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]').tar.gz | tar xz
+sudo mv local-brain /usr/local/bin/
+
+# Or via Cargo
 cargo install local-brain
-```
 
-### Option 3: Cargo Binstall (Fast)
-```bash
-cargo binstall local-brain
-```
-
-### Option 4: Build from Source
-```bash
-git clone https://github.com/IsmaelMartinez/local-brain
-cd local-brain
-cargo build --release
-```
-
-### Option 5: Claude Code Plugin
-```bash
-# Add as a marketplace
+# Install as Claude Code plugin
 /plugin marketplace add IsmaelMartinez/local-brain
-
-# Install the plugin
 /plugin install local-brain
 ```
 
-Claude will automatically use local-brain to offload routine tasks (code review, doc analysis, planning) to local models.
-
-See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
+See [INSTALLATION.md](INSTALLATION.md) for detailed platform-specific instructions, Ollama setup, and model recommendations.
 
 ## Quick Start
 
@@ -59,7 +39,7 @@ See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
 local-brain --version
 
 # Review a file
-echo '{"file_path":"src/main.rs"}' | local-brain
+local-brain --files src/main.rs
 
 # Review git changes
 local-brain --git-diff --task quick-review
@@ -69,6 +49,39 @@ local-brain --dir src --pattern "*.rs"
 
 # Review specific files
 local-brain --files src/main.rs,src/lib.rs
+
+# Specify review type and focus
+local-brain --files src/auth.rs --kind code --review-focus security
+```
+
+## Use Cases
+
+**Pre-commit Review**
+```bash
+# Review staged changes before committing
+local-brain --git-diff --kind code --review-focus refactoring
+```
+
+**Security Audit**
+```bash
+# Focus on security concerns in authentication code
+local-brain --files src/auth.rs,src/session.rs --review-focus security
+```
+
+**Documentation Quality Check**
+```bash
+# Review all markdown docs for clarity
+local-brain --dir docs --pattern "*.md" --kind other --review-focus readability
+```
+
+**CI/CD Integration**
+```yaml
+# .github/workflows/review.yml
+- name: Code Review with Local Brain
+  run: |
+    ollama pull qwen2.5-coder:3b
+    local-brain --git-diff > review.md
+    cat review.md >> $GITHUB_STEP_SUMMARY
 ```
 
 ## Models

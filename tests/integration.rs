@@ -13,23 +13,6 @@ fn local_brain() -> Command {
 // ============================================================================
 
 #[test]
-fn test_dry_run_stdin_mode() {
-    let test_file = "tests/fixtures/code_smells.js";
-    let input = format!(
-        r#"{{"file_path": "{}", "meta": {{"kind": "code"}}}}"#,
-        fs::canonicalize(test_file).unwrap().display()
-    );
-
-    let mut cmd = local_brain();
-    cmd.arg("--dry-run")
-        .write_stdin(input)
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("DRY RUN - Model:"))
-        .stdout(predicate::str::contains("DRY RUN - File: code_smells.js"));
-}
-
-#[test]
 fn test_dry_run_files_mode() {
     let mut cmd = local_brain();
     cmd.arg("--dry-run")
@@ -37,7 +20,8 @@ fn test_dry_run_files_mode() {
         .arg("tests/fixtures/code_smells.js")
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN - Model:"))
+        .stdout(predicate::str::contains("## Dry Run Information"))
+        .stdout(predicate::str::contains("Model:"))
         .stdout(predicate::str::contains("code_smells.js"));
 }
 
@@ -51,7 +35,8 @@ fn test_dry_run_dir_mode() {
         .arg("*.js")
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN - Model:"));
+        .stdout(predicate::str::contains("## Dry Run Information"))
+        .stdout(predicate::str::contains("Model:"));
 }
 
 #[test]
@@ -64,9 +49,7 @@ fn test_dry_run_with_model_override() {
         .arg("tests/fixtures/code_smells.js")
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "DRY RUN - Model: custom-model:latest",
-        ));
+        .stdout(predicate::str::contains("Model: custom-model:latest"));
 }
 
 #[test]
@@ -79,7 +62,22 @@ fn test_dry_run_with_task_selection() {
         .arg("tests/fixtures/code_smells.js")
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN - Model:"));
+        .stdout(predicate::str::contains("Model:"));
+}
+
+#[test]
+fn test_dry_run_with_kind_and_review_focus() {
+    let mut cmd = local_brain();
+    cmd.arg("--dry-run")
+        .arg("--files")
+        .arg("tests/fixtures/code_smells.js")
+        .arg("--kind")
+        .arg("design-doc")
+        .arg("--review-focus")
+        .arg("security")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("## Dry Run Information"));
 }
 
 // ============================================================================
@@ -87,7 +85,7 @@ fn test_dry_run_with_task_selection() {
 // ============================================================================
 
 #[test]
-fn test_output_is_valid_json() {
+fn test_output_is_valid_markdown() {
     let mut cmd = local_brain();
     let output = cmd
         .arg("--dry-run")
@@ -97,22 +95,12 @@ fn test_output_is_valid_json() {
         .expect("Failed to execute command");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Output should be valid JSON");
 
-    // Verify expected fields exist
-    assert!(parsed.get("spikes").is_some(), "Missing 'spikes' field");
+    // Verify Markdown structure
+    assert!(stdout.contains("# Code Review"), "Missing main heading");
     assert!(
-        parsed.get("simplifications").is_some(),
-        "Missing 'simplifications' field"
-    );
-    assert!(
-        parsed.get("defer_for_later").is_some(),
-        "Missing 'defer_for_later' field"
-    );
-    assert!(
-        parsed.get("other_observations").is_some(),
-        "Missing 'other_observations' field"
+        stdout.contains("## Dry Run Information"),
+        "Missing dry run section"
     );
 }
 
@@ -137,15 +125,13 @@ fn test_multiple_files_aggregation() {
         .expect("Failed to execute command");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Output should be valid JSON");
 
-    // Should have observations from both files
-    let observations = parsed["other_observations"].as_array().unwrap();
+    // Should have sections for both files
     assert!(
-        observations.len() >= 8,
-        "Should have observations from both files"
+        stdout.contains("test1.rs") && stdout.contains("test2.rs"),
+        "Should have sections for both files"
     );
+    assert!(stdout.contains("# Code Review"), "Missing main heading");
 }
 
 // ============================================================================
@@ -165,12 +151,13 @@ fn test_missing_file_error() {
 }
 
 #[test]
-fn test_invalid_stdin_json() {
+fn test_no_mode_specified_error() {
     let mut cmd = local_brain();
-    cmd.write_stdin("not valid json")
-        .assert()
+    cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("Failed to parse input JSON"));
+        .stderr(predicate::str::contains(
+            "Must specify one of: --files, --git-diff, or --dir",
+        ));
 }
 
 #[test]
@@ -213,7 +200,8 @@ fn test_help_flag() {
         .assert()
         .success()
         .stdout(predicate::str::contains("structured code review"))
-        .stdout(predicate::str::contains("--dry-run"));
+        .stdout(predicate::str::contains("--dry-run"))
+        .stdout(predicate::str::contains("Markdown output"));
 }
 
 #[test]
@@ -229,7 +217,108 @@ fn test_model_flag_priority() {
         .arg("tests/fixtures/code_smells.js")
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN - Model: override-model"));
+        .stdout(predicate::str::contains("Model: override-model"));
+}
+
+#[test]
+fn test_task_overrides_default() {
+    // --task should use task mapping instead of default model
+    let mut cmd = local_brain();
+    cmd.arg("--dry-run")
+        .arg("--task")
+        .arg("quick-review")
+        .arg("--files")
+        .arg("tests/fixtures/code_smells.js")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Model:"));
+}
+
+#[test]
+fn test_default_model_when_no_flags() {
+    // No --model or --task flags should use default model
+    let mut cmd = local_brain();
+    cmd.arg("--dry-run")
+        .arg("--files")
+        .arg("tests/fixtures/code_smells.js")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Model:"));
+}
+
+// ============================================================================
+// File Handling Edge Cases
+// ============================================================================
+
+#[test]
+fn test_empty_files_list() {
+    // Empty --files argument should handle gracefully
+    let mut cmd = local_brain();
+    cmd.arg("--dry-run")
+        .arg("--files")
+        .arg("")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_multiple_files_with_mixed_results() {
+    // Test multiple files where some may not exist
+    let temp_dir = TempDir::new().unwrap();
+    let file1 = temp_dir.path().join("exists.rs");
+    fs::write(&file1, "fn test() {}").unwrap();
+
+    let files_arg = format!("{},nonexistent.rs", file1.display());
+
+    let mut cmd = local_brain();
+    let output = cmd
+        .arg("--dry-run")
+        .arg("--files")
+        .arg(&files_arg)
+        .output()
+        .expect("Failed to execute command");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should process the file that exists
+    assert!(stdout.contains("exists.rs"));
+    // Should warn about the missing file
+    assert!(stderr.contains("Failed to read file"));
+}
+
+#[test]
+fn test_files_mode_preserves_order() {
+    // Verify that multiple files are processed in the order specified
+    let temp_dir = TempDir::new().unwrap();
+    let file1 = temp_dir.path().join("zzz.rs");
+    let file2 = temp_dir.path().join("aaa.rs");
+    let file3 = temp_dir.path().join("mmm.rs");
+
+    fs::write(&file1, "fn zzz() {}").unwrap();
+    fs::write(&file2, "fn aaa() {}").unwrap();
+    fs::write(&file3, "fn mmm() {}").unwrap();
+
+    let files_arg = format!("{},{},{}", file1.display(), file2.display(), file3.display());
+
+    let mut cmd = local_brain();
+    let output = cmd
+        .arg("--dry-run")
+        .arg("--files")
+        .arg(&files_arg)
+        .output()
+        .expect("Failed to execute command");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Find positions of each filename in output
+    let pos_zzz = stdout.find("zzz.rs").expect("Should contain zzz.rs");
+    let pos_aaa = stdout.find("aaa.rs").expect("Should contain aaa.rs");
+    let pos_mmm = stdout.find("mmm.rs").expect("Should contain mmm.rs");
+
+    // Verify order matches input order, not alphabetical
+    assert!(pos_zzz < pos_aaa, "zzz.rs should appear before aaa.rs");
+    assert!(pos_aaa < pos_mmm, "aaa.rs should appear before mmm.rs");
 }
 
 // ============================================================================

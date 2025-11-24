@@ -6,7 +6,7 @@ set -e
 
 BINARY="./target/release/local-brain"
 TEST_FILE="tests/fixtures/code_smells.js"
-RESULTS_FILE="/tmp/local_brain_test_results.json"
+RESULTS_FILE="/tmp/local_brain_test_results.md"
 
 echo "========================================"
 echo "Local-Brain Integration Test"
@@ -34,8 +34,7 @@ echo ""
 echo "Running local-brain on code with known smells..."
 echo ""
 
-echo "{\"file_path\": \"$(pwd)/$TEST_FILE\", \"meta\": {\"kind\": \"code\", \"review_focus\": \"refactoring\"}}" | \
-    $BINARY > "$RESULTS_FILE" 2>&1
+$BINARY --files "$TEST_FILE" --kind code --review-focus refactoring > "$RESULTS_FILE" 2>&1
 
 # Check if it succeeded
 if [ $? -ne 0 ]; then
@@ -51,22 +50,28 @@ echo ""
 echo "========================================"
 echo "Results:"
 echo "========================================"
-cat "$RESULTS_FILE" | jq .
+cat "$RESULTS_FILE"
 echo ""
 
-# Parse results
-SPIKES_COUNT=$(cat "$RESULTS_FILE" | jq '.spikes | length')
-SIMPLIFICATIONS_COUNT=$(cat "$RESULTS_FILE" | jq '.simplifications | length')
-DEFER_COUNT=$(cat "$RESULTS_FILE" | jq '.defer_for_later | length')
-OBSERVATIONS_COUNT=$(cat "$RESULTS_FILE" | jq '.other_observations | length')
+# Parse results (check for markdown sections)
+ISSUES_COUNT=$(grep -c "^## Issues Found" "$RESULTS_FILE" || echo "0")
+SIMPLIFICATIONS_COUNT=$(grep -c "^## Simplifications" "$RESULTS_FILE" || echo "0")
+LATER_COUNT=$(grep -c "^## Consider Later" "$RESULTS_FILE" || echo "0")
+OBSERVATIONS_COUNT=$(grep -c "^## Other Observations" "$RESULTS_FILE" || echo "0")
+
+# Count actual findings (lines starting with - or * under sections)
+TOTAL_FINDINGS=$(grep -cE "^[*-] " "$RESULTS_FILE" || echo "0")
 
 echo "========================================"
 echo "Analysis:"
 echo "========================================"
-echo "Spikes (issues found): $SPIKES_COUNT"
-echo "Simplifications: $SIMPLIFICATIONS_COUNT"
-echo "Defer for later: $DEFER_COUNT"
-echo "Other observations: $OBSERVATIONS_COUNT"
+echo "Markdown sections found:"
+echo "  Issues Found: $ISSUES_COUNT"
+echo "  Simplifications: $SIMPLIFICATIONS_COUNT"
+echo "  Consider Later: $LATER_COUNT"
+echo "  Other Observations: $OBSERVATIONS_COUNT"
+echo ""
+echo "Total findings (bullet points): $TOTAL_FINDINGS"
 echo ""
 
 # Expected smells in the test file:
@@ -76,14 +81,12 @@ echo ""
 # 4. Duplicate code (get* functions)
 # 5. No error handling (parseUserData)
 
-TOTAL_FINDINGS=$((SPIKES_COUNT + SIMPLIFICATIONS_COUNT + DEFER_COUNT))
-
 echo "========================================"
 echo "Validation:"
 echo "========================================"
 
 if [ $TOTAL_FINDINGS -gt 0 ]; then
-    echo "✅ PASS: Found $TOTAL_FINDINGS code smell(s)"
+    echo "✅ PASS: Found $TOTAL_FINDINGS issue(s) in markdown output"
     echo ""
     echo "Expected smells in test file:"
     echo "  1. Deeply nested conditionals (validateUser)"

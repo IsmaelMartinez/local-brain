@@ -5,9 +5,8 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -24,26 +23,22 @@ use std::process::Command;
     long_about = r#"Local Brain: Structured Code Review with Local LLMs
 
 Local Brain uses Ollama (https://ollama.ai) to perform structured code reviews
-locally without sending code to external services. It provides JSON output with
-categorized feedback: spikes (critical issues), simplifications, items to defer,
+locally without sending code to external services. It provides Markdown output with
+categorized feedback: issues found, simplifications, items to consider later,
 and general observations.
 
 MODES:
-  stdin (default)  - Read JSON input from stdin with file path and metadata
-  --git-diff       - Review all changed files in git (staged or unstaged)
   --files          - Review specific files from a comma-separated list
+  --git-diff       - Review all changed files in git (staged or unstaged)
   --dir            - Review all files in a directory matching a pattern
 
 EXAMPLES:
 
-  Basic usage with stdin (pipe JSON input):
-    echo '{"file_path": "src/main.rs", "meta": {"kind": "code"}}' | local-brain
+  Review specific files:
+    local-brain --files "src/main.rs,src/lib.rs"
 
   Review git changes:
     local-brain --git-diff
-
-  Review specific files:
-    local-brain --files "src/main.rs,src/lib.rs"
 
   Review all Rust files in src/:
     local-brain --dir src --pattern "*.rs"
@@ -53,6 +48,9 @@ EXAMPLES:
 
   Use task-based model selection:
     local-brain --task "security" --files "auth.rs"
+
+  Specify document type and review focus:
+    local-brain --files "auth.rs" --kind code --review-focus security
 
   Dry run (validate without calling Ollama):
     local-brain --dry-run --files "src/main.rs"
@@ -87,6 +85,14 @@ struct Cli {
     /// Dry run mode: validate inputs and show what would be sent to Ollama without making the call
     #[arg(long)]
     dry_run: bool,
+
+    /// Type of document: code, design-doc, ticket, other
+    #[arg(long)]
+    kind: Option<String>,
+
+    /// Review focus: refactoring, readability, performance, risk, general
+    #[arg(long)]
+    review_focus: Option<String>,
 }
 
 // ============================================================================
@@ -100,50 +106,18 @@ struct ModelRegistry {
     default_model: String,
 }
 
-// ============================================================================
-// Data Structures
-// ============================================================================
-
-/// Metadata about the file being reviewed
-#[derive(Debug, Deserialize)]
-struct Meta {
-    /// Type of document: code, design-doc, ticket, other
-    kind: Option<String>,
-    /// Review focus: refactoring, readability, performance, risk, general
-    review_focus: Option<String>,
-}
-
-/// Input payload received via stdin
-#[derive(Debug, Deserialize)]
-struct InputPayload {
-    /// Absolute path to the file to review
-    file_path: PathBuf,
-    /// Optional metadata
-    meta: Option<Meta>,
-    /// Optional model override from JSON input
-    ollama_model: Option<String>,
-}
-
-/// A single review item with title, summary, and optional line range
-#[derive(Debug, Serialize, Deserialize)]
-struct ReviewItem {
-    title: String,
-    summary: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    lines: Option<String>,
-}
-
-/// Output payload sent to stdout
-#[derive(Debug, Serialize, Deserialize)]
-struct OutputPayload {
-    /// Hotspots, areas to investigate, potential issues
-    spikes: Vec<ReviewItem>,
-    /// Areas that could be simplified or optimized
-    simplifications: Vec<ReviewItem>,
-    /// Low-priority items for future iterations
-    defer_for_later: Vec<ReviewItem>,
-    /// General notes and observations
-    other_observations: Vec<String>,
+/// Priority for model selection
+/// Represents the different ways a model can be specified, in order of priority
+#[derive(Debug, Clone)]
+enum ModelPriority {
+    /// Highest priority: explicit --model CLI flag
+    CliFlag(String),
+    /// Second priority: --task flag that maps to a model via registry
+    Task(String),
+    /// Third priority: MODEL_NAME environment variable (backwards compatibility)
+    EnvVar(String),
+    /// Lowest priority: default model from registry
+    Default,
 }
 
 // ============================================================================
@@ -170,71 +144,110 @@ fn main() -> Result<()> {
         return handle_directory(&cli);
     }
 
-    // Normal mode: read from stdin
-    // 2. Read stdin into a string
-    let mut input = String::new();
-    io::stdin()
-        .read_to_string(&mut input)
-        .context("Failed to read from stdin")?;
-
-    // 3. Deserialize to InputPayload
-    let payload: InputPayload =
-        serde_json::from_str(&input).context("Failed to parse input JSON")?;
-
-    // 4. Review the file and output result
-    let output = review_file(&cli, &payload)?;
-
-    // 5. Serialize to stdout
-    serde_json::to_writer(io::stdout(), &output).context("Failed to write output JSON")?;
-
-    Ok(())
+    // No mode specified - error
+    anyhow::bail!("Must specify one of: --files, --git-diff, or --dir");
 }
 
-/// Review a single file based on InputPayload
-fn review_file(cli: &Cli, payload: &InputPayload) -> Result<OutputPayload> {
+// ============================================================================
+// Git Diff Handling
+// ============================================================================
+
+/// Encapsulates git diff operations and parsing
+struct GitDiff {
+    stdout: String,
+}
+
+impl GitDiff {
+    /// Execute git diff command to get changed files
+    ///
+    /// First tries staged files (--cached), then falls back to all modified files.
+    /// Filters for added, copied, modified, and renamed files (ACMR).
+    fn fetch_changed_files() -> Result<Self> {
+        // Try staged files first
+        let output = Command::new("git")
+            .args(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+            .output()
+            .context("Failed to execute git diff --cached")?;
+
+        let mut stdout = String::from_utf8(output.stdout)
+            .context("Invalid UTF-8 from git output")?;
+
+        // If no staged files, get all modified files
+        if stdout.trim().is_empty() {
+            let output = Command::new("git")
+                .args(["diff", "--name-only", "--diff-filter=ACMR"])
+                .output()
+                .context("Failed to execute git diff")?;
+
+            stdout = String::from_utf8(output.stdout)
+                .context("Invalid UTF-8 from git output")?;
+        }
+
+        Ok(GitDiff { stdout })
+    }
+
+    /// Parse git output into list of PathBufs
+    ///
+    /// Filters out empty lines and trims whitespace.
+    fn parse_changed_files(&self) -> Vec<PathBuf> {
+        self.stdout
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| PathBuf::from(line.trim()))
+            .collect()
+    }
+}
+
+// ============================================================================
+// File Review Functions
+// ============================================================================
+
+/// Review a single file
+fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
     // 1. Select model
-    let selected_model = select_model(cli, payload)?;
+    let selected_model = select_model(cli)?;
 
     // 2. Read file from disk
-    let document = std::fs::read_to_string(&payload.file_path)
-        .with_context(|| format!("Failed to read file: {:?}", payload.file_path))?;
+    let document = std::fs::read_to_string(file_path)
+        .with_context(|| format!("Failed to read file: {:?}", file_path))?;
 
     // Extract filename for metadata
-    let filename = payload
-        .file_path
+    let filename = file_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown");
 
     // 3. Build Ollama prompt
-    let (system_msg, user_msg) = build_prompt(&document, filename, &payload.meta)?;
+    let (system_msg, user_msg) = build_prompt(&document, filename, cli.kind.as_deref(), cli.review_focus.as_deref())?;
 
-    // 4. Dry run mode: return mock output with validation info
+    // 4. Dry run mode: return mock markdown output
     if cli.dry_run {
-        return Ok(OutputPayload {
-            spikes: vec![],
-            simplifications: vec![],
-            defer_for_later: vec![],
-            other_observations: vec![
-                format!("DRY RUN - Model: {}", selected_model),
-                format!("DRY RUN - File: {} ({} bytes)", filename, document.len()),
-                format!("DRY RUN - System prompt: {} chars", system_msg.len()),
-                format!("DRY RUN - User prompt: {} chars", user_msg.len()),
-            ],
-        });
+        return Ok(format!(
+            "## Dry Run Information\n\n\
+            - Model: {}\n\
+            - File: {} ({} bytes)\n\
+            - System prompt: {} chars\n\
+            - User prompt: {} chars\n",
+            selected_model,
+            filename,
+            document.len(),
+            system_msg.len(),
+            user_msg.len()
+        ));
     }
 
     // 5. Call Ollama API with selected model
     let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
 
-    // 6. Parse response into OutputPayload
-    parse_ollama_response(&response)
+    // 6. Return markdown response
+    Ok(response)
 }
 
 /// Handle git diff mode: get changed files and review each
 fn handle_git_diff(cli: &Cli) -> Result<()> {
-    // Get list of changed files
-    let changed_files = get_git_changed_files()?;
+    // Get list of changed files using GitDiff struct
+    let git_diff = GitDiff::fetch_changed_files()?;
+    let changed_files = git_diff.parse_changed_files();
 
     if changed_files.is_empty() {
         eprintln!("No changed files found");
@@ -243,52 +256,21 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
 
     eprintln!("Reviewing {} changed file(s)...", changed_files.len());
 
-    // Review each file
-    let mut all_spikes = Vec::new();
-    let mut all_simplifications = Vec::new();
-    let mut all_defer = Vec::new();
-    let mut all_observations = Vec::new();
+    // Review each file and collect markdown
+    let mut markdown_sections = Vec::new();
 
     for file_path in &changed_files {
         eprintln!("Reviewing: {}", file_path.display());
 
-        // Create payload for this file
-        let payload = InputPayload {
-            file_path: file_path.clone(),
-            meta: Some(Meta {
-                kind: Some("code".to_string()),
-                review_focus: Some("general".to_string()),
-            }),
-            ollama_model: None,
-        };
+        let file_name = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
 
         // Review the file
-        match review_file(cli, &payload) {
-            Ok(output) => {
-                // Add file context to each item
-                let file_name = file_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown");
-
-                for mut spike in output.spikes {
-                    spike.title = format!("[{}] {}", file_name, spike.title);
-                    all_spikes.push(spike);
-                }
-
-                for mut simp in output.simplifications {
-                    simp.title = format!("[{}] {}", file_name, simp.title);
-                    all_simplifications.push(simp);
-                }
-
-                for mut defer in output.defer_for_later {
-                    defer.title = format!("[{}] {}", file_name, defer.title);
-                    all_defer.push(defer);
-                }
-
-                for obs in output.other_observations {
-                    all_observations.push(format!("[{}] {}", file_name, obs));
-                }
+        match review_file(cli, file_path) {
+            Ok(markdown) => {
+                markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
             Err(e) => {
                 eprintln!("Error reviewing {}: {}", file_path.display(), e);
@@ -296,48 +278,17 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
         }
     }
 
-    // Aggregate and output results
-    let aggregated = OutputPayload {
-        spikes: all_spikes,
-        simplifications: all_simplifications,
-        defer_for_later: all_defer,
-        other_observations: all_observations,
-    };
-
-    serde_json::to_writer(io::stdout(), &aggregated)
-        .context("Failed to write aggregated output JSON")?;
-
-    Ok(())
-}
-
-/// Get list of changed files from git
-fn get_git_changed_files() -> Result<Vec<PathBuf>> {
-    // Try staged files first
-    let output = Command::new("git")
-        .args(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
-        .output()
-        .context("Failed to execute git diff --cached")?;
-
-    let mut files = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
-
-    // If no staged files, get all modified files
-    if files.trim().is_empty() {
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "--diff-filter=ACMR"])
-            .output()
-            .context("Failed to execute git diff")?;
-
-        files = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
+    // Output aggregated markdown
+    if markdown_sections.is_empty() {
+        println!("# No Reviews Generated\n");
+    } else {
+        println!("# Git Diff Review\n");
+        for section in markdown_sections {
+            println!("{}\n", section);
+        }
     }
 
-    // Convert to PathBuf, filtering out empty lines
-    let paths: Vec<PathBuf> = files
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| PathBuf::from(line.trim()))
-        .collect();
-
-    Ok(paths)
+    Ok(())
 }
 
 /// Handle --files mode: review comma-separated list of files
@@ -447,51 +398,21 @@ fn matches_pattern(path: &Path, pattern: &str) -> bool {
 fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
     eprintln!("Reviewing {} file(s)...", files.len());
 
-    let mut all_spikes = Vec::new();
-    let mut all_simplifications = Vec::new();
-    let mut all_defer = Vec::new();
-    let mut all_observations = Vec::new();
+    // Review each file and collect markdown
+    let mut markdown_sections = Vec::new();
 
     for file_path in files {
         eprintln!("Reviewing: {}", file_path.display());
 
-        // Create payload for this file
-        let payload = InputPayload {
-            file_path: file_path.clone(),
-            meta: Some(Meta {
-                kind: Some("code".to_string()),
-                review_focus: Some("general".to_string()),
-            }),
-            ollama_model: None,
-        };
+        let file_name = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
 
         // Review the file
-        match review_file(cli, &payload) {
-            Ok(output) => {
-                // Add file context to each item
-                let file_name = file_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown");
-
-                for mut spike in output.spikes {
-                    spike.title = format!("[{}] {}", file_name, spike.title);
-                    all_spikes.push(spike);
-                }
-
-                for mut simp in output.simplifications {
-                    simp.title = format!("[{}] {}", file_name, simp.title);
-                    all_simplifications.push(simp);
-                }
-
-                for mut defer in output.defer_for_later {
-                    defer.title = format!("[{}] {}", file_name, defer.title);
-                    all_defer.push(defer);
-                }
-
-                for obs in output.other_observations {
-                    all_observations.push(format!("[{}] {}", file_name, obs));
-                }
+        match review_file(cli, file_path) {
+            Ok(markdown) => {
+                markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
             Err(e) => {
                 eprintln!("Error reviewing {}: {}", file_path.display(), e);
@@ -499,16 +420,15 @@ fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
         }
     }
 
-    // Aggregate and output results
-    let aggregated = OutputPayload {
-        spikes: all_spikes,
-        simplifications: all_simplifications,
-        defer_for_later: all_defer,
-        other_observations: all_observations,
-    };
-
-    serde_json::to_writer(io::stdout(), &aggregated)
-        .context("Failed to write aggregated output JSON")?;
+    // Output aggregated markdown
+    if markdown_sections.is_empty() {
+        println!("# No Reviews Generated\n");
+    } else {
+        println!("# Code Review\n");
+        for section in markdown_sections {
+            println!("{}\n", section);
+        }
+    }
 
     Ok(())
 }
@@ -517,57 +437,113 @@ fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
 // Model Selection
 // ============================================================================
 
-/// Select model based on priority: CLI --model > stdin ollama_model > CLI --task > default
-fn select_model(cli: &Cli, payload: &InputPayload) -> Result<String> {
+/// Select model based on priority: CLI --model > CLI --task > ENV > default
+///
+/// This function determines which model to use by checking in priority order:
+/// 1. CLI --model flag (highest priority)
+/// 2. CLI --task flag (maps to model via registry)
+/// 3. MODEL_NAME environment variable (backwards compatibility)
+/// 4. Default model from registry (lowest priority)
+///
+/// # Examples
+/// ```
+/// // Using CLI flag:
+/// // local-brain --model "qwen2.5-coder:3b" --files "src/main.rs"
+///
+/// // Using task mapping:
+/// // local-brain --task "quick-review" --files "src/main.rs"
+/// ```
+fn select_model(cli: &Cli) -> Result<String> {
+    // Build ModelPriority from CLI args
+    let priority = determine_model_priority(cli)?;
+
+    // Resolve priority to actual model name
+    resolve_model_priority(&priority)
+}
+
+/// Determine model priority from CLI arguments
+///
+/// Checks CLI flags and environment in priority order and returns
+/// the appropriate ModelPriority variant.
+fn determine_model_priority(cli: &Cli) -> Result<ModelPriority> {
     // Priority 1: CLI --model flag
     if let Some(model) = &cli.model {
-        return Ok(model.clone());
+        return Ok(ModelPriority::CliFlag(model.clone()));
     }
 
-    // Priority 2: stdin ollama_model field
-    if let Some(model) = &payload.ollama_model {
-        return Ok(model.clone());
-    }
-
-    // Priority 3: CLI --task flag with model registry lookup
+    // Priority 2: CLI --task flag
     if let Some(task) = &cli.task {
-        return load_model_from_task(task);
+        return Ok(ModelPriority::Task(task.clone()));
     }
 
-    // Priority 4: Environment variable (for backwards compatibility)
+    // Priority 3: Environment variable (backwards compatibility)
     if let Ok(model) = std::env::var("MODEL_NAME") {
-        return Ok(model);
+        return Ok(ModelPriority::EnvVar(model));
     }
 
-    // Priority 5: Default from models.json or fallback
-    load_default_model()
+    // Priority 4: Default
+    Ok(ModelPriority::Default)
 }
 
-/// Load model registry and get model for specified task
-fn load_model_from_task(task: &str) -> Result<String> {
-    let registry = load_model_registry()?;
-
-    registry.task_mappings.get(task).cloned().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Unknown task type: '{}'. Available tasks: {}",
-            task,
-            registry
-                .task_mappings
-                .keys()
-                .map(|k| k.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    })
-}
-
-/// Load default model from registry
-fn load_default_model() -> Result<String> {
-    let registry = load_model_registry()?;
-    Ok(registry.default_model)
+/// Resolve ModelPriority to actual model name
+///
+/// For Task and Default priorities, loads the model registry.
+/// For CliFlag and EnvVar, returns the model name directly.
+fn resolve_model_priority(priority: &ModelPriority) -> Result<String> {
+    match priority {
+        ModelPriority::CliFlag(model) => Ok(model.clone()),
+        ModelPriority::EnvVar(model) => Ok(model.clone()),
+        ModelPriority::Task(task) => {
+            let registry = load_model_registry()?;
+            registry.task_mappings.get(task).cloned().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown task type: '{}'. Available tasks: {}",
+                    task,
+                    registry
+                        .task_mappings
+                        .keys()
+                        .map(|k| k.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })
+        }
+        ModelPriority::Default => {
+            let registry = load_model_registry()?;
+            Ok(registry.default_model)
+        }
+    }
 }
 
 /// Load model registry from models.json
+///
+/// Loads the model configuration file that defines:
+/// - Task mappings (task name → model name)
+/// - Default model to use when no specific selection is made
+///
+/// # File Search Order
+/// 1. Current working directory (./models.json)
+/// 2. Directory containing the binary executable
+///
+/// # File Format
+/// ```json
+/// {
+///   "task_mappings": {
+///     "quick-review": "qwen2.5-coder:3b",
+///     "security": "deepseek-coder-v2"
+///   },
+///   "default_model": "qwen2.5-coder:7b"
+/// }
+/// ```
+///
+/// # Returns
+/// Returns a ModelRegistry struct with task mappings and default model
+///
+/// # Errors
+/// Returns error if:
+/// - models.json not found in either location
+/// - File cannot be read
+/// - JSON is malformed or doesn't match expected structure
 fn load_model_registry() -> Result<ModelRegistry> {
     // Try to load models.json from current directory or binary directory
     let models_json = std::fs::read_to_string("models.json")
@@ -592,49 +568,58 @@ fn load_model_registry() -> Result<ModelRegistry> {
 // ============================================================================
 
 /// Build system and user prompts for Ollama
-fn build_prompt(document: &str, filename: &str, meta: &Option<Meta>) -> Result<(String, String)> {
-    // System prompt explaining the JSON structure and review categories
+///
+/// Creates structured prompts that guide the LLM to produce Markdown output
+/// with specific section headings for categorized feedback.
+///
+/// # Arguments
+/// * `document` - The file content to review
+/// * `filename` - Name of the file being reviewed
+/// * `kind` - Document type (code, design-doc, ticket, other). Defaults to "unknown"
+/// * `review_focus` - Review emphasis (refactoring, readability, performance, risk, general). Defaults to "general"
+///
+/// # Returns
+/// Returns a tuple of (system_prompt, user_prompt) both as Strings
+///
+/// # Example
+/// ```
+/// let (system, user) = build_prompt("fn main() {}", "main.rs", Some("code"), Some("readability"))?;
+/// // system contains Markdown structure instructions
+/// // user contains file metadata and content
+/// ```
+fn build_prompt(document: &str, filename: &str, kind: Option<&str>, review_focus: Option<&str>) -> Result<(String, String)> {
+    // System prompt explaining the Markdown structure and review categories
     let system_prompt = r#"You are a senior code and document reviewer.
 
-You receive a document and metadata, and must produce a structured review.
+You receive a document and metadata, and must produce a structured review in Markdown format.
 
-**CRITICAL**: You MUST output ONLY raw JSON. No markdown, no code fences, no explanation. Just the JSON object starting with { and ending with }.
+Use the following structure with these exact headings:
 
-The JSON must match this exact structure:
-{
-  "spikes": [
-    { "title": "string", "summary": "string", "lines": "optional string" }
-  ],
-  "simplifications": [
-    { "title": "string", "summary": "string" }
-  ],
-  "defer_for_later": [
-    { "title": "string", "summary": "string" }
-  ],
-  "other_observations": ["string", "string"]
-}
+## Issues Found
+- **Title**: Description (lines: X-Y)
+- **Title**: Description
 
-**Field Definitions**:
-- spikes: Hotspots, areas to investigate, potential issues or complexity
-- simplifications: Areas that could be simplified or optimized
-- defer_for_later: Items that are safe to move to future iterations
-- other_observations: Extra notes, ideas, or general observations
+## Simplifications
+- **Title**: Description
+
+## Consider Later
+- **Title**: Description
+
+## Other Observations
+- General note
+- Another observation
 
 **Rules**:
 - Each item must be SHORT and FOCUSED (1-3 sentences max)
 - Do NOT repeat the entire document
 - Focus on actionable insights
-- Output ONLY the JSON, no explanatory text before or after"#;
+- Output clean Markdown with proper headings
+- Use - for bullet points, **bold** for titles
+- Include line numbers for issues when relevant"#;
 
     // User prompt with metadata and document
-    let kind = meta
-        .as_ref()
-        .and_then(|m| m.kind.as_deref())
-        .unwrap_or("unknown");
-    let focus = meta
-        .as_ref()
-        .and_then(|m| m.review_focus.as_deref())
-        .unwrap_or("general");
+    let kind = kind.unwrap_or("unknown");
+    let focus = review_focus.unwrap_or("general");
 
     let user_prompt = format!(
         r#"**File**: {filename}
@@ -644,7 +629,7 @@ The JSON must match this exact structure:
 **Document Content**:
 {document}
 
-Provide your structured review as JSON only."#
+Provide your structured review in Markdown format with the specified headings."#
     );
 
     Ok((system_prompt.to_string(), user_prompt))
@@ -666,6 +651,35 @@ struct OllamaMessage {
 }
 
 /// Call Ollama API with the given prompts
+///
+/// Sends a chat completion request to the local Ollama instance via HTTP POST.
+/// Uses the /api/chat endpoint with a non-streaming response.
+///
+/// # Arguments
+/// * `system_msg` - System prompt defining the LLM's role and output format
+/// * `user_msg` - User prompt containing the document to review
+/// * `model_name` - Name of the Ollama model to use (e.g., "qwen2.5-coder:3b")
+///
+/// # Environment Variables
+/// * `OLLAMA_HOST` - Ollama server URL (default: "http://localhost:11434")
+///
+/// # Returns
+/// Returns the model's response content as a String
+///
+/// # Errors
+/// Returns error if:
+/// - HTTP request fails
+/// - Ollama returns non-success status
+/// - Response cannot be parsed as JSON
+///
+/// # Example
+/// ```
+/// let response = call_ollama(
+///     "You are a code reviewer",
+///     "Review this code: fn main() {}",
+///     "qwen2.5-coder:3b"
+/// )?;
+/// ```
 fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host =
@@ -713,48 +727,7 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
 }
 
 // ============================================================================
-// Response Parsing
-// ============================================================================
-
-/// Parse Ollama response into OutputPayload
-/// Handles cases where model returns text instead of pure JSON
-fn parse_ollama_response(response: &str) -> Result<OutputPayload> {
-    // Try direct parsing first
-    match serde_json::from_str::<OutputPayload>(response) {
-        Ok(output) => Ok(output),
-        Err(_) => {
-            // Extract JSON from markdown code fences if present
-            let cleaned = extract_json_from_markdown(response);
-            serde_json::from_str::<OutputPayload>(&cleaned)
-                .context("Failed to parse Ollama response as JSON. Response may not be valid JSON.")
-        }
-    }
-}
-
-/// Extract JSON from markdown code fences
-/// Handles formats like ```json\n{...}\n``` or ```\n{...}\n```
-fn extract_json_from_markdown(text: &str) -> String {
-    let trimmed = text.trim();
-
-    // Check if wrapped in markdown code fences
-    if trimmed.starts_with("```") {
-        // Remove opening fence (```json or ```)
-        let without_start = trimmed
-            .strip_prefix("```json")
-            .or_else(|| trimmed.strip_prefix("```"))
-            .unwrap_or(trimmed);
-
-        // Remove closing fence
-        let without_end = without_start.strip_suffix("```").unwrap_or(without_start);
-
-        without_end.trim().to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-// ============================================================================
-// Tests (to be implemented)
+// Tests
 // ============================================================================
 
 #[cfg(test)]
@@ -762,26 +735,57 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_input_deserialization() {
-        let json = r#"{"file_path": "/tmp/test.rs", "meta": {"kind": "code"}}"#;
-        let payload: InputPayload = serde_json::from_str(json).unwrap();
-        assert_eq!(payload.file_path, PathBuf::from("/tmp/test.rs"));
+    fn test_build_prompt() {
+        let document = "fn main() { println!(\"hello\"); }";
+        let filename = "test.rs";
+        let kind = Some("code");
+        let review_focus = Some("general");
+
+        let (system, user) = build_prompt(document, filename, kind, review_focus).unwrap();
+
+        assert!(system.contains("Markdown"));
+        assert!(system.contains("## Issues Found"));
+        assert!(user.contains("test.rs"));
+        assert!(user.contains("code"));
+        assert!(user.contains("general"));
     }
 
     #[test]
-    fn test_output_serialization() {
-        let output = OutputPayload {
-            spikes: vec![],
-            simplifications: vec![],
-            defer_for_later: vec![],
-            other_observations: vec!["test".to_string()],
-        };
-        let json = serde_json::to_string(&output).unwrap();
-        assert!(json.contains("other_observations"));
+    fn test_build_prompt_with_defaults() {
+        let document = "fn main() {}";
+        let filename = "test.rs";
+
+        let (system, user) = build_prompt(document, filename, None, None).unwrap();
+
+        assert!(system.contains("Markdown"));
+        assert!(user.contains("unknown")); // default kind
+        assert!(user.contains("general"));  // default review_focus
     }
 
-    // TODO: Add more tests
-    // - Test prompt building
-    // - Test response parsing
-    // - Test error handling
+    #[test]
+    fn test_model_registry_loading() {
+        // This test requires models.json to exist
+        // It's more of an integration test
+        if std::path::Path::new("models.json").exists() {
+            let result = load_model_registry();
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_pattern_matching() {
+        use std::path::PathBuf;
+
+        // Test *.rs pattern
+        assert!(matches_pattern(&PathBuf::from("test.rs"), "*.rs"));
+        assert!(!matches_pattern(&PathBuf::from("test.js"), "*.rs"));
+
+        // Test wildcard
+        assert!(matches_pattern(&PathBuf::from("anything.txt"), "*"));
+
+        // Test multiple extensions
+        assert!(matches_pattern(&PathBuf::from("test.js"), "*.{js,ts}"));
+        assert!(matches_pattern(&PathBuf::from("test.ts"), "*.{js,ts}"));
+        assert!(!matches_pattern(&PathBuf::from("test.rs"), "*.{js,ts}"));
+    }
 }

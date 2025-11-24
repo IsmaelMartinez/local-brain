@@ -1,13 +1,13 @@
 {
-  "name": "local-brain",
+  "name": "local-brain-marketplace",
   "owner": {
-    "name": "Ismael Martinez",
+    "name": "Ismael Martinez Ramos",
     "email": "ismaelmartinez@gmail.com"
   },
   "plugins": [
     {
       "name": "local-brain",
-      "source": "./",
+      "source": "./local-brain",
       "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
       "version": "0.1.0",
       "homepage": "https://github.com/IsmaelMartinez/local-brain",
