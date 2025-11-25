@@ -1,0 +1,22 @@
+{
+  "name": "local-brain",
+  "version": "0.1.0",
+  "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
+  "author": {
+    "name": "Ismael Martinez",
+    "email": "ismaelmartinez@gmail.com"
+  },
+  "homepage": "https://github.com/IsmaelMartinez/local-brain",
+  "repository": "https://github.com/IsmaelMartinez/local-brain",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "ollama",
+    "llm",
+    "rust",
+    "cli"
+  ],
+  "skills": [
+    "skills/local-brain"
+  ]
+}
