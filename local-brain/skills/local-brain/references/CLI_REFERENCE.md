@@ -20,9 +20,11 @@ cargo install --git https://github.com/IsmaelMartinez/local-brain
 
 ### Optional Flags
 
-- `--task <TASK>` - Task-based model selection (quick-review, thorough-review, security, documentation, architecture, refactoring)
+- `--task <TASK>` - Task-based model selection: quick-review, thorough-review, security, documentation, architecture, refactoring
 - `--model <MODEL>` - Override default model (e.g., qwen2.5-coder:3b)
-- `--dry-run` - Test without calling Ollama
+- `--kind <KIND>` - Document type: code, design-doc, ticket, other
+- `--review-focus <FOCUS>` - Review focus: refactoring, readability, performance, risk, general
+- `--dry-run` - Test without calling Ollama (validate inputs only)
 
 ## Environment Variables
 
