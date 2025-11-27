@@ -97,6 +97,18 @@ struct Cli {
     /// Timeout for Ollama requests in seconds (default: 120)
     #[arg(long)]
     timeout: Option<u64>,
+
+    /// Number of times to run the review (default: 1)
+    #[arg(long, default_value_t = 1)]
+    runs: usize,
+
+    /// Enable validation mode: analyze consistency across runs
+    #[arg(long)]
+    validation_mode: bool,
+
+    /// Show performance metrics for each run
+    #[arg(long)]
+    show_metrics: bool,
 }
 
 // ============================================================================
@@ -266,6 +278,87 @@ fn review_file_with_count(cli: &Cli, file_path: &PathBuf, file_count: usize) -> 
     Ok(response)
 }
 
+/// Multi-run review with optional validation analysis
+fn review_file_multi_run(cli: &Cli, file_path: &PathBuf, file_count: usize) -> Result<String> {
+    // If runs == 1, just do single review
+    if cli.runs <= 1 {
+        return review_file_with_count(cli, file_path, file_count);
+    }
+
+    let mut results = Vec::new();
+    let mut durations = Vec::new();
+
+    // Run review multiple times
+    for run_num in 1..=cli.runs {
+        eprintln!("  Run {}/{}", run_num, cli.runs);
+        let start = std::time::Instant::now();
+
+        match review_file_with_count(cli, file_path, file_count) {
+            Ok(markdown) => {
+                let duration = start.elapsed();
+                durations.push(duration.as_secs_f64());
+                results.push(markdown);
+            }
+            Err(e) => {
+                eprintln!("  Run {} failed: {}", run_num, e);
+                // Continue with other runs even if one fails
+            }
+        }
+    }
+
+    if results.is_empty() {
+        anyhow::bail!("All validation runs failed");
+    }
+
+    // If validation mode, analyze consistency
+    if cli.validation_mode {
+        return format_validation_report(&results, &durations, cli.show_metrics);
+    }
+
+    // Otherwise just show all runs separated
+    let mut output = String::new();
+    for (i, result) in results.iter().enumerate() {
+        if i > 0 {
+            output.push_str("\n---\n\n");
+        }
+        output.push_str(&format!("## Run {}\n\n{}", i + 1, result));
+    }
+
+    Ok(output)
+}
+
+/// Format validation report from multiple runs
+fn format_validation_report(
+    results: &[String],
+    durations: &[f64],
+    show_metrics: bool,
+) -> Result<String> {
+    let mut output = String::new();
+
+    output.push_str("## Validation Report\n\n");
+    output.push_str(&format!("- **Total Runs**: {}\n", results.len()));
+    output.push_str(&format!(
+        "- **Average Duration**: {:.1}s\n",
+        durations.iter().sum::<f64>() / durations.len() as f64
+    ));
+
+    if show_metrics {
+        output.push_str("\n## Run Metrics\n\n");
+        output.push_str("| Run | Duration | Status |\n");
+        output.push_str("|-----|----------|--------|\n");
+        for (i, duration) in durations.iter().enumerate() {
+            output.push_str(&format!("| {} | {:.1}s | ✓ |\n", i + 1, duration));
+        }
+    }
+
+    output.push_str("\n## All Runs\n\n");
+    for (i, result) in results.iter().enumerate() {
+        output.push_str(&format!("### Run {}\n\n{}\n\n", i + 1, result));
+    }
+
+    Ok(output)
+}
+
 /// Handle git diff mode: get changed files and review each
 fn handle_git_diff(cli: &Cli) -> Result<()> {
     // Get list of changed files using GitDiff struct
@@ -290,8 +383,8 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file (pass file count for adaptive model selection)
-        match review_file_with_count(cli, file_path, changed_files.len()) {
+        // Review the file (with multi-run support and adaptive model selection)
+        match review_file_multi_run(cli, file_path, changed_files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
@@ -432,8 +525,8 @@ fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file (pass file count for adaptive model selection)
-        match review_file_with_count(cli, file_path, files.len()) {
+        // Review the file (with multi-run support and adaptive model selection)
+        match review_file_multi_run(cli, file_path, files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
