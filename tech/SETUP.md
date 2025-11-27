@@ -119,6 +119,15 @@ cargo clippy --all-targets
 
 # With verbose logging
 RUST_LOG=debug ./target/release/local-brain --files src/main.rs
+
+# Multi-run validation (3 runs)
+./target/release/local-brain --runs 3 --files src/main.rs
+
+# Validation with report and metrics
+./target/release/local-brain --runs 3 --validation-mode --show-metrics --files src/main.rs
+
+# Custom timeout for slow connections
+./target/release/local-brain --timeout 180 --files large_file.rs
 ```
 
 ---

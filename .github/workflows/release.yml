@@ -40,6 +40,6 @@ jobs:
           bin: local-brain
           tar: unix
           zip: windows
-          include: LICENSE,README.md,INSTALLATION.md,QUICKSTART.md
+          include: LICENSE,README.md,docs/QUICK_START.md,docs/INSTALLATION.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

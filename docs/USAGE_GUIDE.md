@@ -176,12 +176,29 @@ local-brain --files architecture.md --kind design-doc --review-focus general
 | `--kind` | Document type | code, design-doc, ticket, other |
 | `--review-focus` | Focus area | refactoring, readability, performance, risk, general |
 
-### Other Options
+### Multi-Run Validation (Statistical Consistency)
 
 | Flag | Usage | Example |
 |------|-------|---------|
-| `--dry-run` | Validate without calling Ollama | `--dry-run` |
+| `--runs N` | Run review N times | `--runs 3` |
+| `--validation-mode` | Show validation report | `--validation-mode` |
+| `--show-metrics` | Include timing metrics | `--show-metrics` |
+
+**Note:** Multi-run validation is useful to check if an expensive model's findings are statistically consistent:
+```bash
+# Get validation report with 3 runs
+local-brain --runs 3 --validation-mode --files security-critical.rs
+
+# Show timing for each run
+local-brain --runs 5 --validation-mode --show-metrics --files auth.rs
+```
+
+### Performance Options
+
+| Flag | Usage | Example |
+|------|-------|---------|
 | `--timeout` | Set request timeout in seconds | `--timeout 180` |
+| `--dry-run` | Validate without calling Ollama | `--dry-run` |
 
 ---
 
@@ -215,6 +232,39 @@ local-brain --git-diff --kind code
 ### Review new feature code
 ```bash
 local-brain --dir src/features --pattern "*.rs" --review-focus readability
+```
+
+### Validate security-critical code with multiple runs
+```bash
+# Run 3 times to check consistency of findings
+local-brain --runs 3 --validation-mode --task security --files critical_auth.rs
+
+# Show timing and validation report
+local-brain --runs 5 --validation-mode --show-metrics --files payment_handler.rs
+```
+
+### Quick validation of multiple files
+```bash
+# Auto-switches to faster model for 5 files
+local-brain --files "src/api.rs,src/db.rs,src/cache.rs,src/auth.rs,src/utils.rs"
+
+# Explicitly request fast model to speed up multi-file review
+local-brain --task quick-review --files "file1.rs,file2.rs,file3.rs,file4.rs"
+```
+
+### Dry-run testing (no Ollama needed)
+```bash
+# Test setup without calling Ollama
+local-brain --dry-run --files src/main.rs
+
+# Validate multi-run setup
+local-brain --dry-run --runs 3 --validation-mode --files test.rs
+```
+
+### Timeout adjustment for slow connections
+```bash
+# Increase timeout to 5 minutes for slow Ollama or large files
+local-brain --timeout 300 --files large_codebase.rs
 ```
 
 ---
