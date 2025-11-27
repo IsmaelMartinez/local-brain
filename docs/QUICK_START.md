@@ -40,7 +40,7 @@ Use local-brain directly from your terminal.
 
 **macOS/Linux (pre-built):**
 ```bash
-curl -L https://github.com/IsmaelMartinez/local-brain/releases/download/v0.1.1/local-brain-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]').tar.gz | tar xz
+curl -L https://github.com/IsmaelMartinez/local-brain/releases/latest/download/local-brain-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]').tar.gz | tar xz
 
 # Optional: move the binary to your PATH
 # sudo mv local-brain /usr/local/bin/
