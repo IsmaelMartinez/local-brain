@@ -227,11 +227,6 @@ impl GitDiff {
 // File Review Functions
 // ============================================================================
 
-/// Review a single file with optional file count for adaptive model selection
-fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
-    review_file_with_count(cli, file_path, 1)
-}
-
 /// Review a file with file count context for adaptive model selection
 fn review_file_with_count(cli: &Cli, file_path: &PathBuf, file_count: usize) -> Result<String> {
     // 1. Select model with file count context
@@ -272,7 +267,8 @@ fn review_file_with_count(cli: &Cli, file_path: &PathBuf, file_count: usize) -> 
     }
 
     // 5. Call Ollama API with selected model
-    let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
+    let timeout_secs = cli.timeout.unwrap_or(120);
+    let response = call_ollama(&system_msg, &user_msg, &selected_model, timeout_secs)?;
 
     // 6. Return markdown response
     Ok(response)
@@ -591,10 +587,10 @@ fn select_model_adaptive(cli: &Cli, file_count: usize) -> Result<String> {
         if file_count > 1 {
             let registry = load_model_registry()?;
             if let Some(model_info) = registry.models.iter().find(|m| m.name == selected_model) {
-                if model_info.speed == "moderate" {
+                if model_info.speed == "moderate" || model_info.speed == "slow" {
                     eprintln!(
-                        "⚠️  Using {} ({} speed) for {} files. This may be slow.",
-                        selected_model, model_info.speed, file_count
+                        "⚠️  Using {} ({} speed, {} parameters, {:.1}GB) for {} files. This may be slow.",
+                        selected_model, model_info.speed, model_info.parameters, model_info.size_gb, file_count
                     );
                     eprintln!(
                         "   Consider using --task quick-review for faster multi-file reviews."
@@ -854,7 +850,7 @@ struct OllamaMessage {
 ///     "qwen2.5-coder:3b"
 /// )?;
 /// ```
-fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<String> {
+fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str, timeout_secs: u64) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host =
         std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
@@ -876,9 +872,9 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
     });
 
     // Make HTTP request with timeout
-    let timeout_secs = std::time::Duration::from_secs(120);
+    let timeout_duration = std::time::Duration::from_secs(timeout_secs);
     let client = reqwest::blocking::Client::builder()
-        .timeout(timeout_secs)
+        .timeout(timeout_duration)
         .build()
         .context("Failed to build HTTP client")?;
 

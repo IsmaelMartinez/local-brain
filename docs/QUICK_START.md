@@ -40,8 +40,11 @@ Use local-brain directly from your terminal.
 
 **macOS/Linux (pre-built):**
 ```bash
-curl -fsSL https://github.com/IsmaelMartinez/local-brain/releases/download/v0.2.0/local-brain-{macos,linux} -o local-brain
-chmod +x local-brain
+curl -L https://github.com/IsmaelMartinez/local-brain/releases/latest/download/local-brain-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]').tar.gz | tar xz
+
+# Optional: move the binary to your PATH
+# sudo mv local-brain /usr/local/bin/
+
 ./local-brain --files "src/main.rs"
 ```
 
