@@ -103,9 +103,19 @@ struct Cli {
 // Model Registry Structures
 // ============================================================================
 
+/// Information about a single model
+#[derive(Debug, Deserialize, Clone)]
+struct ModelInfo {
+    name: String,
+    size_gb: f32,
+    parameters: String,
+    speed: String,
+}
+
 /// Model registry loaded from models.json
 #[derive(Debug, Deserialize)]
 struct ModelRegistry {
+    models: Vec<ModelInfo>,
     task_mappings: HashMap<String, String>,
     default_model: String,
 }
@@ -205,10 +215,15 @@ impl GitDiff {
 // File Review Functions
 // ============================================================================
 
-/// Review a single file
+/// Review a single file with optional file count for adaptive model selection
 fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
-    // 1. Select model
-    let selected_model = select_model(cli)?;
+    review_file_with_count(cli, file_path, 1)
+}
+
+/// Review a file with file count context for adaptive model selection
+fn review_file_with_count(cli: &Cli, file_path: &PathBuf, file_count: usize) -> Result<String> {
+    // 1. Select model with file count context
+    let selected_model = select_model_adaptive(cli, file_count)?;
 
     // 2. Read file from disk
     let document = std::fs::read_to_string(file_path)
@@ -275,8 +290,8 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file
-        match review_file(cli, file_path) {
+        // Review the file (pass file count for adaptive model selection)
+        match review_file_with_count(cli, file_path, changed_files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
@@ -417,8 +432,8 @@ fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file
-        match review_file(cli, file_path) {
+        // Review the file (pass file count for adaptive model selection)
+        match review_file_with_count(cli, file_path, files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
@@ -467,6 +482,59 @@ fn select_model(cli: &Cli) -> Result<String> {
 
     // Resolve priority to actual model name
     resolve_model_priority(&priority)
+}
+
+/// Adaptive model selection based on file count
+///
+/// For multi-file reviews, automatically switch to faster models unless:
+/// - User explicitly specified a model with --model flag
+/// - The task mapping already specifies a fast model
+fn select_model_adaptive(cli: &Cli, file_count: usize) -> Result<String> {
+    let selected_model = select_model(cli)?;
+
+    // Only apply adaptive logic if NOT explicitly requested via --model flag
+    if cli.model.is_some() {
+        // User was explicit, warn if they picked a slow model for multiple files
+        if file_count > 1 {
+            let registry = load_model_registry()?;
+            if let Some(model_info) = registry.models.iter().find(|m| m.name == selected_model) {
+                if model_info.speed == "moderate" {
+                    eprintln!(
+                        "⚠️  Using {} ({} speed) for {} files. This may be slow.",
+                        selected_model, model_info.speed, file_count
+                    );
+                    eprintln!(
+                        "   Consider using --task quick-review for faster multi-file reviews."
+                    );
+                }
+            }
+        }
+        return Ok(selected_model);
+    }
+
+    // Adaptive logic: switch to faster models for multi-file reviews
+    if file_count > 1 {
+        let registry = load_model_registry()?;
+        if let Some(model_info) = registry.models.iter().find(|m| m.name == selected_model) {
+            // If using slow/moderate model for multiple files, switch to fast model
+            if (model_info.speed == "moderate" || model_info.speed == "slow") && file_count > 1 {
+                eprintln!(
+                    "ℹ️  Using faster model for {} files (was: {})",
+                    file_count, selected_model
+                );
+                // Return first "fast" model from registry
+                if let Some(fast_model) = registry
+                    .models
+                    .iter()
+                    .find(|m| m.speed == "fast" || m.speed == "very-fast")
+                {
+                    return Ok(fast_model.name.clone());
+                }
+            }
+        }
+    }
+
+    Ok(selected_model)
 }
 
 /// Determine model priority from CLI arguments
