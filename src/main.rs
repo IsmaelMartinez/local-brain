@@ -93,6 +93,10 @@ struct Cli {
     /// Review focus: refactoring, readability, performance, risk, general
     #[arg(long)]
     review_focus: Option<String>,
+
+    /// Timeout for Ollama requests in seconds (default: 120)
+    #[arg(long)]
+    timeout: Option<u64>,
 }
 
 // ============================================================================
@@ -169,8 +173,8 @@ impl GitDiff {
             .output()
             .context("Failed to execute git diff --cached")?;
 
-        let mut stdout = String::from_utf8(output.stdout)
-            .context("Invalid UTF-8 from git output")?;
+        let mut stdout =
+            String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
 
         // If no staged files, get all modified files
         if stdout.trim().is_empty() {
@@ -179,8 +183,7 @@ impl GitDiff {
                 .output()
                 .context("Failed to execute git diff")?;
 
-            stdout = String::from_utf8(output.stdout)
-                .context("Invalid UTF-8 from git output")?;
+            stdout = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
         }
 
         Ok(GitDiff { stdout })
@@ -218,7 +221,12 @@ fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
         .unwrap_or("unknown");
 
     // 3. Build Ollama prompt
-    let (system_msg, user_msg) = build_prompt(&document, filename, cli.kind.as_deref(), cli.review_focus.as_deref())?;
+    let (system_msg, user_msg) = build_prompt(
+        &document,
+        filename,
+        cli.kind.as_deref(),
+        cli.review_focus.as_deref(),
+    )?;
 
     // 4. Dry run mode: return mock markdown output
     if cli.dry_run {
@@ -587,7 +595,12 @@ fn load_model_registry() -> Result<ModelRegistry> {
 /// // system contains Markdown structure instructions
 /// // user contains file metadata and content
 /// ```
-fn build_prompt(document: &str, filename: &str, kind: Option<&str>, review_focus: Option<&str>) -> Result<(String, String)> {
+fn build_prompt(
+    document: &str,
+    filename: &str,
+    kind: Option<&str>,
+    review_focus: Option<&str>,
+) -> Result<(String, String)> {
     // System prompt explaining the Markdown structure and review categories
     let system_prompt = r#"You are a senior code and document reviewer.
 
@@ -701,13 +714,18 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
         "stream": false
     });
 
-    // Make HTTP request
-    let client = reqwest::blocking::Client::new();
+    // Make HTTP request with timeout
+    let timeout_secs = std::time::Duration::from_secs(120);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(timeout_secs)
+        .build()
+        .context("Failed to build HTTP client")?;
+
     let response = client
         .post(format!("{}/api/chat", ollama_host))
         .json(&request_body)
         .send()
-        .context("Failed to send request to Ollama")?;
+        .context("Failed to send request to Ollama. Check if Ollama is running on localhost:11434 or set OLLAMA_HOST")?;
 
     // Check status
     if !response.status().is_success() {
@@ -717,11 +735,25 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
     // Get response text first for debugging
     let response_text = response.text().context("Failed to read Ollama response")?;
 
+    // Validate response is not empty
+    if response_text.trim().is_empty() {
+        anyhow::bail!(
+            "Ollama returned empty response. The model may have crashed or disconnected."
+        );
+    }
+
     // Try to parse into OllamaResponse
     let ollama_response: OllamaResponse = serde_json::from_str(&response_text).context(format!(
         "Failed to parse Ollama response. First 200 chars: {}",
         &response_text.chars().take(200).collect::<String>()
     ))?;
+
+    // Validate the content is not empty
+    if ollama_response.message.content.trim().is_empty() {
+        anyhow::bail!(
+            "Ollama returned empty content. The model may not have generated a response."
+        );
+    }
 
     Ok(ollama_response.message.content)
 }
@@ -759,7 +791,7 @@ mod tests {
 
         assert!(system.contains("Markdown"));
         assert!(user.contains("unknown")); // default kind
-        assert!(user.contains("general"));  // default review_focus
+        assert!(user.contains("general")); // default review_focus
     }
 
     #[test]
