@@ -1,6 +1,6 @@
 [package]
 name = "local-brain"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Ismael Martinez <ismaelmartinez@gmail.com>"]
 description = "A tool for structured code review using local Ollama LLM models"
