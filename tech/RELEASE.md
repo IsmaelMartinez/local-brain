@@ -2,6 +2,21 @@
 
 This document describes how to create a new release of local-brain.
 
+## ⚠️ CRITICAL: Tag Timing
+
+**The version tag MUST be created on main AFTER the PR is merged, NOT on the feature branch.**
+
+If you tag on a feature branch:
+- Release workflow won't trigger (tags not on main)
+- Binaries won't be built
+- Release won't be published
+
+**Correct order:**
+1. Create feature branch → Update version → Push
+2. Create and merge PR to main
+3. **Then** create tag: `git tag -a vX.Y.Z`
+4. Push tag: `git push origin vX.Y.Z`
+
 ## Prerequisites
 
 - Write access to the repository
@@ -39,12 +54,21 @@ If you maintain a CHANGELOG.md, add release notes:
 - Bug fix description
 ```
 
-### 3. Commit Changes
+### 3. Commit Changes to Feature Branch
+
+**IMPORTANT:** Create a feature branch for the version bump, NOT directly to main:
 
 ```bash
+# Create feature branch
+git checkout -b release/vX.Y.Z
+
+# Update version
 git add Cargo.toml Cargo.lock CHANGELOG.md
 git commit -m "chore: bump version to vX.Y.Z"
-git push origin main
+git push origin release/vX.Y.Z
+
+# Create PR and merge to main
+# (Do NOT create tag until after merge)
 ```
 
 ### 4. Create Release with GitHub CLI
