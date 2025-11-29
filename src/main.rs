@@ -850,7 +850,12 @@ struct OllamaMessage {
 ///     "qwen2.5-coder:3b"
 /// )?;
 /// ```
-fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str, timeout_secs: u64) -> Result<String> {
+fn call_ollama(
+    system_msg: &str,
+    user_msg: &str,
+    model_name: &str,
+    timeout_secs: u64,
+) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host =
         std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
