@@ -130,10 +130,9 @@ gh release download vX.Y.Z
 ```
 
 Verify all platform binaries are attached:
-- `local-brain-x86_64-apple-darwin.tar.gz`
-- `local-brain-aarch64-apple-darwin.tar.gz`
-- `local-brain-x86_64-unknown-linux-gnu.tar.gz`
-- `local-brain-x86_64-pc-windows-msvc.zip`
+- `local-brain-x86_64-apple-darwin.tar.gz` (macOS Intel)
+- `local-brain-aarch64-apple-darwin.tar.gz` (macOS Apple Silicon)
+- `local-brain-x86_64-unknown-linux-gnu.tar.gz` (Linux)
 
 ### 7. Edit Release Notes
 
