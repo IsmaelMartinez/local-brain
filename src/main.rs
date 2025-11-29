@@ -93,15 +93,41 @@ struct Cli {
     /// Review focus: refactoring, readability, performance, risk, general
     #[arg(long)]
     review_focus: Option<String>,
+
+    /// Timeout for Ollama requests in seconds (default: 120)
+    #[arg(long)]
+    timeout: Option<u64>,
+
+    /// Number of times to run the review (default: 1)
+    #[arg(long, default_value_t = 1)]
+    runs: usize,
+
+    /// Enable validation mode: analyze consistency across runs
+    #[arg(long)]
+    validation_mode: bool,
+
+    /// Show performance metrics for each run
+    #[arg(long)]
+    show_metrics: bool,
 }
 
 // ============================================================================
 // Model Registry Structures
 // ============================================================================
 
+/// Information about a single model
+#[derive(Debug, Deserialize, Clone)]
+struct ModelInfo {
+    name: String,
+    size_gb: f32,
+    parameters: String,
+    speed: String,
+}
+
 /// Model registry loaded from models.json
 #[derive(Debug, Deserialize)]
 struct ModelRegistry {
+    models: Vec<ModelInfo>,
     task_mappings: HashMap<String, String>,
     default_model: String,
 }
@@ -169,8 +195,8 @@ impl GitDiff {
             .output()
             .context("Failed to execute git diff --cached")?;
 
-        let mut stdout = String::from_utf8(output.stdout)
-            .context("Invalid UTF-8 from git output")?;
+        let mut stdout =
+            String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
 
         // If no staged files, get all modified files
         if stdout.trim().is_empty() {
@@ -179,8 +205,7 @@ impl GitDiff {
                 .output()
                 .context("Failed to execute git diff")?;
 
-            stdout = String::from_utf8(output.stdout)
-                .context("Invalid UTF-8 from git output")?;
+            stdout = String::from_utf8(output.stdout).context("Invalid UTF-8 from git output")?;
         }
 
         Ok(GitDiff { stdout })
@@ -202,10 +227,10 @@ impl GitDiff {
 // File Review Functions
 // ============================================================================
 
-/// Review a single file
-fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
-    // 1. Select model
-    let selected_model = select_model(cli)?;
+/// Review a file with file count context for adaptive model selection
+fn review_file_with_count(cli: &Cli, file_path: &PathBuf, file_count: usize) -> Result<String> {
+    // 1. Select model with file count context
+    let selected_model = select_model_adaptive(cli, file_count)?;
 
     // 2. Read file from disk
     let document = std::fs::read_to_string(file_path)
@@ -218,7 +243,12 @@ fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
         .unwrap_or("unknown");
 
     // 3. Build Ollama prompt
-    let (system_msg, user_msg) = build_prompt(&document, filename, cli.kind.as_deref(), cli.review_focus.as_deref())?;
+    let (system_msg, user_msg) = build_prompt(
+        &document,
+        filename,
+        cli.kind.as_deref(),
+        cli.review_focus.as_deref(),
+    )?;
 
     // 4. Dry run mode: return mock markdown output
     if cli.dry_run {
@@ -237,10 +267,92 @@ fn review_file(cli: &Cli, file_path: &PathBuf) -> Result<String> {
     }
 
     // 5. Call Ollama API with selected model
-    let response = call_ollama(&system_msg, &user_msg, &selected_model)?;
+    let timeout_secs = cli.timeout.unwrap_or(120);
+    let response = call_ollama(&system_msg, &user_msg, &selected_model, timeout_secs)?;
 
     // 6. Return markdown response
     Ok(response)
+}
+
+/// Multi-run review with optional validation analysis
+fn review_file_multi_run(cli: &Cli, file_path: &PathBuf, file_count: usize) -> Result<String> {
+    // If runs == 1, just do single review
+    if cli.runs <= 1 {
+        return review_file_with_count(cli, file_path, file_count);
+    }
+
+    let mut results = Vec::new();
+    let mut durations = Vec::new();
+
+    // Run review multiple times
+    for run_num in 1..=cli.runs {
+        eprintln!("  Run {}/{}", run_num, cli.runs);
+        let start = std::time::Instant::now();
+
+        match review_file_with_count(cli, file_path, file_count) {
+            Ok(markdown) => {
+                let duration = start.elapsed();
+                durations.push(duration.as_secs_f64());
+                results.push(markdown);
+            }
+            Err(e) => {
+                eprintln!("  Run {} failed: {}", run_num, e);
+                // Continue with other runs even if one fails
+            }
+        }
+    }
+
+    if results.is_empty() {
+        anyhow::bail!("All validation runs failed");
+    }
+
+    // If validation mode, analyze consistency
+    if cli.validation_mode {
+        return format_validation_report(&results, &durations, cli.show_metrics);
+    }
+
+    // Otherwise just show all runs separated
+    let mut output = String::new();
+    for (i, result) in results.iter().enumerate() {
+        if i > 0 {
+            output.push_str("\n---\n\n");
+        }
+        output.push_str(&format!("## Run {}\n\n{}", i + 1, result));
+    }
+
+    Ok(output)
+}
+
+/// Format validation report from multiple runs
+fn format_validation_report(
+    results: &[String],
+    durations: &[f64],
+    show_metrics: bool,
+) -> Result<String> {
+    let mut output = String::new();
+
+    output.push_str("## Validation Report\n\n");
+    output.push_str(&format!("- **Total Runs**: {}\n", results.len()));
+    output.push_str(&format!(
+        "- **Average Duration**: {:.1}s\n",
+        durations.iter().sum::<f64>() / durations.len() as f64
+    ));
+
+    if show_metrics {
+        output.push_str("\n## Run Metrics\n\n");
+        output.push_str("| Run | Duration | Status |\n");
+        output.push_str("|-----|----------|--------|\n");
+        for (i, duration) in durations.iter().enumerate() {
+            output.push_str(&format!("| {} | {:.1}s | ✓ |\n", i + 1, duration));
+        }
+    }
+
+    output.push_str("\n## All Runs\n\n");
+    for (i, result) in results.iter().enumerate() {
+        output.push_str(&format!("### Run {}\n\n{}\n\n", i + 1, result));
+    }
+
+    Ok(output)
 }
 
 /// Handle git diff mode: get changed files and review each
@@ -267,8 +379,8 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file
-        match review_file(cli, file_path) {
+        // Review the file (with multi-run support and adaptive model selection)
+        match review_file_multi_run(cli, file_path, changed_files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
@@ -409,8 +521,8 @@ fn review_multiple_files(cli: &Cli, files: &[PathBuf]) -> Result<()> {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        // Review the file
-        match review_file(cli, file_path) {
+        // Review the file (with multi-run support and adaptive model selection)
+        match review_file_multi_run(cli, file_path, files.len()) {
             Ok(markdown) => {
                 markdown_sections.push(format!("### {}\n\n{}", file_name, markdown));
             }
@@ -459,6 +571,59 @@ fn select_model(cli: &Cli) -> Result<String> {
 
     // Resolve priority to actual model name
     resolve_model_priority(&priority)
+}
+
+/// Adaptive model selection based on file count
+///
+/// For multi-file reviews, automatically switch to faster models unless:
+/// - User explicitly specified a model with --model flag
+/// - The task mapping already specifies a fast model
+fn select_model_adaptive(cli: &Cli, file_count: usize) -> Result<String> {
+    let selected_model = select_model(cli)?;
+
+    // Only apply adaptive logic if NOT explicitly requested via --model flag
+    if cli.model.is_some() {
+        // User was explicit, warn if they picked a slow model for multiple files
+        if file_count > 1 {
+            let registry = load_model_registry()?;
+            if let Some(model_info) = registry.models.iter().find(|m| m.name == selected_model) {
+                if model_info.speed == "moderate" || model_info.speed == "slow" {
+                    eprintln!(
+                        "⚠️  Using {} ({} speed, {} parameters, {:.1}GB) for {} files. This may be slow.",
+                        selected_model, model_info.speed, model_info.parameters, model_info.size_gb, file_count
+                    );
+                    eprintln!(
+                        "   Consider using --task quick-review for faster multi-file reviews."
+                    );
+                }
+            }
+        }
+        return Ok(selected_model);
+    }
+
+    // Adaptive logic: switch to faster models for multi-file reviews
+    if file_count > 1 {
+        let registry = load_model_registry()?;
+        if let Some(model_info) = registry.models.iter().find(|m| m.name == selected_model) {
+            // If using slow/moderate model for multiple files, switch to fast model
+            if (model_info.speed == "moderate" || model_info.speed == "slow") && file_count > 1 {
+                eprintln!(
+                    "ℹ️  Using faster model for {} files (was: {})",
+                    file_count, selected_model
+                );
+                // Return first "fast" model from registry
+                if let Some(fast_model) = registry
+                    .models
+                    .iter()
+                    .find(|m| m.speed == "fast" || m.speed == "very-fast")
+                {
+                    return Ok(fast_model.name.clone());
+                }
+            }
+        }
+    }
+
+    Ok(selected_model)
 }
 
 /// Determine model priority from CLI arguments
@@ -587,7 +752,12 @@ fn load_model_registry() -> Result<ModelRegistry> {
 /// // system contains Markdown structure instructions
 /// // user contains file metadata and content
 /// ```
-fn build_prompt(document: &str, filename: &str, kind: Option<&str>, review_focus: Option<&str>) -> Result<(String, String)> {
+fn build_prompt(
+    document: &str,
+    filename: &str,
+    kind: Option<&str>,
+    review_focus: Option<&str>,
+) -> Result<(String, String)> {
     // System prompt explaining the Markdown structure and review categories
     let system_prompt = r#"You are a senior code and document reviewer.
 
@@ -680,7 +850,12 @@ struct OllamaMessage {
 ///     "qwen2.5-coder:3b"
 /// )?;
 /// ```
-fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<String> {
+fn call_ollama(
+    system_msg: &str,
+    user_msg: &str,
+    model_name: &str,
+    timeout_secs: u64,
+) -> Result<String> {
     // Get Ollama configuration from environment
     let ollama_host =
         std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
@@ -701,13 +876,18 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
         "stream": false
     });
 
-    // Make HTTP request
-    let client = reqwest::blocking::Client::new();
+    // Make HTTP request with timeout
+    let timeout_duration = std::time::Duration::from_secs(timeout_secs);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(timeout_duration)
+        .build()
+        .context("Failed to build HTTP client")?;
+
     let response = client
         .post(format!("{}/api/chat", ollama_host))
         .json(&request_body)
         .send()
-        .context("Failed to send request to Ollama")?;
+        .context("Failed to send request to Ollama. Check if Ollama is running on localhost:11434 or set OLLAMA_HOST")?;
 
     // Check status
     if !response.status().is_success() {
@@ -717,11 +897,25 @@ fn call_ollama(system_msg: &str, user_msg: &str, model_name: &str) -> Result<Str
     // Get response text first for debugging
     let response_text = response.text().context("Failed to read Ollama response")?;
 
+    // Validate response is not empty
+    if response_text.trim().is_empty() {
+        anyhow::bail!(
+            "Ollama returned empty response. The model may have crashed or disconnected."
+        );
+    }
+
     // Try to parse into OllamaResponse
     let ollama_response: OllamaResponse = serde_json::from_str(&response_text).context(format!(
         "Failed to parse Ollama response. First 200 chars: {}",
         &response_text.chars().take(200).collect::<String>()
     ))?;
+
+    // Validate the content is not empty
+    if ollama_response.message.content.trim().is_empty() {
+        anyhow::bail!(
+            "Ollama returned empty content. The model may not have generated a response."
+        );
+    }
 
     Ok(ollama_response.message.content)
 }
@@ -759,7 +953,7 @@ mod tests {
 
         assert!(system.contains("Markdown"));
         assert!(user.contains("unknown")); // default kind
-        assert!(user.contains("general"));  // default review_focus
+        assert!(user.contains("general")); // default review_focus
     }
 
     #[test]

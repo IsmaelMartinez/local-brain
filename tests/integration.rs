@@ -153,11 +153,9 @@ fn test_missing_file_error() {
 #[test]
 fn test_no_mode_specified_error() {
     let mut cmd = local_brain();
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains(
-            "Must specify one of: --files, --git-diff, or --dir",
-        ));
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "Must specify one of: --files, --git-diff, or --dir",
+    ));
 }
 
 #[test]
@@ -299,7 +297,12 @@ fn test_files_mode_preserves_order() {
     fs::write(&file2, "fn aaa() {}").unwrap();
     fs::write(&file3, "fn mmm() {}").unwrap();
 
-    let files_arg = format!("{},{},{}", file1.display(), file2.display(), file3.display());
+    let files_arg = format!(
+        "{},{},{}",
+        file1.display(),
+        file2.display(),
+        file3.display()
+    );
 
     let mut cmd = local_brain();
     let output = cmd

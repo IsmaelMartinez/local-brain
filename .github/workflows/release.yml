@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
 
 permissions:
   contents: write
@@ -30,8 +34,8 @@ jobs:
     name: Release
     needs: test
     runs-on: ubuntu-latest
-    # Only release from main branch
-    if: github.event.base_ref == 'refs/heads/main' || github.ref == 'refs/heads/main'
+    # Only release on version tags (v*)
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +44,6 @@ jobs:
           bin: local-brain
           tar: unix
           zip: windows
-          include: LICENSE,README.md,INSTALLATION.md,QUICKSTART.md
+          include: LICENSE,README.md,docs/QUICK_START.md,docs/INSTALLATION.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
