@@ -1,0 +1,7 @@
+# Requirements for running Python migration spikes
+# Install with: pip install -r requirements.txt
+
+ollama>=0.3.0
+pyyaml>=6.0.0
+jinja2>=3.0.0
+

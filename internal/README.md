@@ -7,6 +7,7 @@ This directory contains internal planning, analysis, and development documentati
 ### Planning & Analysis
 - **[DOCUMENTATION_PLAN.md](DOCUMENTATION_PLAN.md)** - Documentation restructuring plan and roadmap (archived)
 - **[PRIORITIZATION_ANALYSIS.md](PRIORITIZATION_ANALYSIS.md)** - Feature prioritization and roadmap analysis
+- **[PYTHON_MIGRATION_INVESTIGATION.md](PYTHON_MIGRATION_INVESTIGATION.md)** - Investigation for migrating to Python with ollama-python (NEW)
 
 ### Validation & Testing
 - **[VALIDATION.md](VALIDATION.md)** - Complete validation results and experiment plan
