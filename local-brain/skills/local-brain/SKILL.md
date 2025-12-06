@@ -1,185 +1,205 @@
 ---
 name: local-brain
-description: Delegate code reviews, document analysis, and planning tasks to local Ollama LLM models to reduce context usage. Supports lightweight hooks (ai, ai-cmd, ai-explain) for quick operations and heavyweight agent for multi-file reviews. Use when users request code reviews, design document summaries, ticket/issue triage, documentation analysis, planning, or routine pattern matching. Ideal for routine analysis that doesn't require cloud-scale reasoning. Do NOT use for complex multi-step reasoning requiring extensive codebase context or security-critical decisions.
+description: Delegate code reviews, explanations, commit messages, and analysis tasks to local Ollama LLM models with automatic tool calling. The model uses tools (read_file, git_diff, list_directory) to explore the codebase itself. Use for code reviews, explanations, commit message generation, or any task that can be offloaded to a local model. Ideal for routine analysis that doesn't require cloud-scale reasoning.
 ---
 
-# Local Brain - Context Offloading Skill
+# Local Brain - Tool-Calling LLM Tasks
 
-Tiered system for offloading work to local Ollama models, preserving main agent context.
+Offload tasks to local Ollama models with automatic tool calling. The model reads files, checks git, and explores directories on its own.
 
-## Tiers
+## Quick Commands
 
-**Tier 1 - Hooks** (fastest, direct bash):
-- `ai` - Quick Q&A
-- `ai-cmd` - Command generation
-- `ai-explain` - Explain last command
+```bash
+# Chat - model decides what to do
+local-brain chat "What changed in the last commit?"
 
-**Tier 2 - local-brain binary** (structured reviews):
-- Single/multiple file reviews
-- Directory reviews with patterns
-- Git diff reviews
-- Structured Markdown output
+# Code review - model explores using tools
+local-brain review                    # Review git changes
+local-brain review src/main.py        # Review specific file
+local-brain review local_brain/       # Review directory
 
-**Tier 3 - Subagent** (heavyweight, multi-file):
-- Orchestrates multiple local-brain calls
-- Handles complex multi-file analysis
-- Coordinates multiple review tasks
+# Generate commit message
+local-brain commit
 
-## Decision Logic
+# Explain code
+local-brain run explain "How does the agent loop work?"
 
-Use this flowchart to select the right tier:
-
-```
-User request
-    ↓
-Is it a quick question/explanation?
-    → YES: Use Tier 1 (hooks)
-    → NO: Continue
-        ↓
-    Is it 1-3 files for review?
-        → YES: Use Tier 2 (local-brain binary directly)
-        → NO: Continue
-            ↓
-        Multiple files OR multiple review tasks?
-            → YES: Use Tier 3 (spawn subagent)
+# Summarize
+local-brain run summarize "Summarize this project"
 ```
 
 ## Prerequisites
 
-- **Ollama** running locally with at least one model
-- **local-brain** binary installed
-- **Hooks** defined in `~/.zshrc` (ai, ai-cmd, ai-explain)
+- **Ollama** running locally with a tool-calling model
+- **local-brain** Python package installed
 
-Check prerequisites: `which local-brain && ollama ps`
-
-See [CLI_REFERENCE.md](references/CLI_REFERENCE.md) for installation and [HOOKS.md](references/HOOKS.md) for hook details.
-
-## Tier 1: Lightweight Hooks
-
-### When to Use
-- Quick factual questions
-- Command generation
-- Explaining last command/output
-- NO file reading needed
-
-### Usage
-
-**Quick Q&A:**
+Check prerequisites:
 ```bash
-ai "brief question"
+which local-brain && ollama ps
+ollama list  # Ensure qwen3 or llama3.2 is available
 ```
 
-**Command generation:**
+Install:
 ```bash
-ai-cmd "task description"
+pipx install local-brain
+# or
+pip install local-brain
 ```
 
-**Explain last command:**
+## When to Use
+
+| Task | Command |
+|------|---------|
+| Quick questions about codebase | `local-brain chat "What does X do?"` |
+| Code review (git changes) | `local-brain review` |
+| Code review (specific file) | `local-brain review path/to/file` |
+| Code review (directory) | `local-brain review src/` |
+| Generate commit message | `local-brain commit` |
+| Explain code/concepts | `local-brain run explain "..."` |
+| Summarize project | `local-brain run summarize "..."` |
+
+## How It Works
+
+The model has access to tools and uses them automatically:
+
 ```bash
-ai-explain
+$ local-brain review -v
+
+🤖 Using model: qwen3:latest
+🔧 Tools: ['read_file', 'list_directory', 'git_diff', 'git_changed_files']
+
+📍 Turn 1
+   📞 Tool calls: 2
+      → git_changed_files(staged=False)
+      → git_diff(staged=False)
+
+📍 Turn 2
+   ✅ Final response (structured review)
 ```
 
-See [HOOKS.md](references/HOOKS.md) for detailed hook documentation.
+**Key insight:** You don't need to specify files - the model explores using tools!
 
-## Tier 2: Direct local-brain Binary
+## Available Tools
 
-### When to Use
-- Review 1-3 specific files
-- Single directory review
-- Single git diff review
-- Want structured Markdown output
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file contents |
+| `list_directory` | List files with glob patterns |
+| `write_file` | Write to files |
+| `git_diff` | Get git diff |
+| `git_changed_files` | List changed files |
+| `git_status` | Get git status |
+| `git_log` | Get commit history |
+| `run_command` | Run safe shell commands |
 
-### Usage
+## Built-in Skills
 
-**IMPORTANT:** Do NOT read file contents first - that defeats the purpose of context offloading.
+| Skill | Tools | Output |
+|-------|-------|--------|
+| `chat` | all | Free-form response |
+| `code-review` | file + git | Structured Markdown (Issues/Simplifications/Consider Later) |
+| `explain` | file | Technical explanation |
+| `commit-message` | git | Conventional Commits format |
+| `summarize` | file + git | Project summary |
 
-1. Verify files exist: `ls path/to/file` (do NOT use Read tool)
-2. Run local-brain directly:
+## Output Format
+
+### Code Review Output
+
+```markdown
+## Issues Found
+- **Title**: Description (line numbers when relevant)
+
+## Simplifications
+- **Title**: How to simplify
+
+## Consider Later
+- **Title**: Non-urgent improvements
+
+## Other Observations
+- General notes
+```
+
+### Commit Message Output
+
+```
+feat(scope): subject line under 50 chars
+
+Optional body explaining what and why.
+```
+
+## Usage Examples
+
+### Review Changed Files
+
+```bash
+# Review all git changes
+local-brain review
+
+# With verbose output to see tool calls
+local-brain review -v
+```
+
+### Review Specific Target
 
 ```bash
 # Single file
-local-brain --files path/to/file
-
-# Multiple files
-local-brain --files path/file1,path/file2
+local-brain review src/main.py
 
 # Directory
-local-brain --dir src --pattern "*.rs"
+local-brain review local_brain/
 
-# Git diff
-local-brain --git-diff
-
-# With task type
-local-brain --task quick-review --files path/to/file
+# Multiple items via chat
+local-brain chat "Review main.py and test_main.py"
 ```
 
-3. Parse and present the Markdown output sections:
-   - Issues Found
-   - Simplifications
-   - Consider Later
-   - Other Observations
+### Generate Commit Message
 
-## Tier 3: Heavyweight Subagent
+```bash
+# Stage changes first
+git add .
 
-### When to Use
-- Multiple directories to review
-- Multiple separate review tasks
-- Need to coordinate multiple local-brain calls
-- Complex multi-step analysis
+# Generate message
+local-brain commit
 
-### Usage
-
-Spawn subagent using Task tool with `subagent_type=general-purpose` and `model=haiku`:
-
-**Example prompt:**
-```
-Review multiple files using local-brain without reading them into context.
-
-IMPORTANT: Do NOT read file contents - offload to local-brain.
-
-Prerequisites verified:
-- local-brain: [path]
-- Ollama: [status]
-
-Tasks:
-1. Review [file1] with local-brain --files [file1]
-2. Review [file2] with local-brain --files [file2]
-3. Review [dir] with local-brain --dir [dir] --pattern "*.ext"
-
-For each review:
-- Execute local-brain command
-- Parse Markdown output
-- Extract key findings
-
-Return consolidated summary:
-1. Critical issues across all files
-2. Common patterns found
-3. Recommended priority actions
-
-Return complete analysis in final message.
+# Output: feat(cli): add new review command...
 ```
 
-### Subagent Responsibilities
-1. Execute multiple local-brain commands
-2. Parse each Markdown output
-3. Consolidate findings
-4. Return structured summary
+### Custom Queries
 
-## Output Handling
+```bash
+# Ask anything - model uses tools as needed
+local-brain chat "What's the project structure?"
+local-brain chat "Find all TODO comments"
+local-brain chat "How does error handling work in agent.py?"
+```
 
-All tiers produce different outputs:
+## Verbose Mode
 
-**Tier 1 (hooks):** Plain text responses
-**Tier 2 (binary):** Structured Markdown with sections
-**Tier 3 (subagent):** Consolidated cross-file analysis
+Add `-v` to see tool calls:
 
-After receiving results:
-- Highlight critical items from "Issues Found"
-- Summarize simplification opportunities
-- Distinguish urgent vs. later improvements
-- Ask if user wants to address specific findings
+```bash
+local-brain review -v
+local-brain chat -v "What files are in src/?"
+```
+
+## Model Selection
+
+Default model: `qwen3:latest` (good tool calling support)
+
+Override with `--model`:
+```bash
+local-brain review --model llama3.2:latest
+```
+
+## When NOT to Use
+
+- Complex multi-step reasoning requiring full codebase context
+- Security-critical code analysis
+- Tasks requiring external API access
+- Very large files (>50KB truncated)
 
 ## References
 
-- [CLI_REFERENCE.md](references/CLI_REFERENCE.md) - Installation, flags, troubleshooting
-- [HOOKS.md](references/HOOKS.md) - Detailed hook documentation and usage
+- [README.md](../../../README.md) - Full documentation
+- [Ollama](https://ollama.ai) - Local LLM runtime
