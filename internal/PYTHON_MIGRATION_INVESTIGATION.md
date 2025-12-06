@@ -2,7 +2,7 @@
 
 **Date:** December 6, 2025  
 **Last Updated:** December 6, 2025  
-**Status:** ✅ **APPROVED - All spikes passed**  
+**Status:** ✅ **PHASE 2 COMPLETE - Tool-based implementation working**  
 **Goal:** Evaluate replacing Rust implementation with Python using `ollama-python` library  
 **Focus:** Tool calling, skill-based extensibility, simplified architecture
 
@@ -28,6 +28,77 @@ This investigation evaluates migrating from the current Rust-based `local-brain`
 | 5. Distribution | ✅ CLEAR | `pipx install` or `uv` recommended |
 
 **Decision: PROCEED WITH PYTHON MIGRATION**
+
+---
+
+## Current Implementation (Phase 2 Complete)
+
+### Package Structure
+```
+local_brain/
+├── __init__.py          # Package version
+├── cli.py               # Click CLI (local-brain command)
+├── agent.py             # Core agent loop with tool calling
+├── skill_loader.py      # YAML skill loading + Jinja2 templates
+├── skills/              # User-defined skills (YAML files)
+└── tools/
+    ├── __init__.py      # Tool registry
+    ├── file_tools.py    # read_file, list_directory, write_file, file_info
+    ├── git_tools.py     # git_diff, git_changed_files, git_status, git_log
+    └── shell_tools.py   # run_command (with safety restrictions)
+```
+
+### CLI Commands
+
+```bash
+# General chat with all tools
+local-brain chat "What files are in src/?"
+
+# Code review (model uses tools to explore)
+local-brain review                    # Review git changes
+local-brain review src/main.py        # Review specific file
+local-brain review src/               # Review directory
+
+# Generate commit message
+local-brain commit
+
+# Run any skill
+local-brain run code-review "Review the Python package"
+local-brain run explain "How does the agent loop work?"
+local-brain run summarize "Summarize this codebase"
+
+# List skills
+local-brain skills
+```
+
+### Built-in Skills
+
+| Skill | Tools | Purpose |
+|-------|-------|---------|
+| `chat` | all | General assistant, model decides what tools to use |
+| `code-review` | file + git | Structured code review (Issues/Simplifications/Consider/Observations) |
+| `explain` | file | Explain code or concepts |
+| `commit-message` | git | Generate Conventional Commits message |
+| `summarize` | file + git | Summarize files/directories/projects |
+
+### Test Results (December 6, 2025)
+
+```bash
+$ local-brain chat -v "What Python files are in local_brain?"
+🤖 Using model: qwen3:latest
+🔧 Tools: ['read_file', 'list_directory', ...]
+📍 Turn 1
+   📞 Tool calls: 1
+      → list_directory(path='local_brain', pattern='*.py')
+📍 Turn 2
+   ✅ Final response
+```
+
+The model correctly:
+- Calls `list_directory` to explore
+- Calls `read_file` when asked to review
+- Calls `git_diff` for commit messages
+- Chains multiple tools for complex requests
 
 ---
 
@@ -663,39 +734,45 @@ time python spike_tool_calling.py
 
 ## Migration Path
 
-### Phase 1: Prototype (Week 1)
+### Phase 1: Prototype (Week 1) ✅ COMPLETE
 
-1. Run all spikes
-2. Document findings
-3. Decide go/no-go on Python migration
+1. ~~Run all spikes~~ ✅
+2. ~~Document findings~~ ✅
+3. ~~Decide go/no-go on Python migration~~ ✅ APPROVED
 
-### Phase 2: Core Implementation (Week 2-3)
+### Phase 2: Core Implementation (Week 2-3) ✅ COMPLETE
 
-If spikes succeed:
-1. Create `local-brain-py` package
-2. Implement basic CLI (files, model selection)
-3. Implement skill loading
-4. Implement tool calling
-5. Port existing prompt templates to skill.yaml
+1. ~~Create `local_brain/` package~~ ✅
+2. ~~Implement agent loop with tool calling~~ ✅
+3. ~~Implement skill loader (YAML + Jinja2)~~ ✅
+4. ~~Create built-in tools (file, git, shell)~~ ✅
+5. ~~Create built-in skills (chat, code-review, explain, commit-message, summarize)~~ ✅
+6. ~~Build CLI with Click~~ ✅
 
-### Phase 3: Feature Parity (Week 3-4)
+### Phase 3: ~~Feature Parity~~ Tool-Based Paradigm ✅ COMPLETE
 
-1. Git diff mode
-2. Directory traversal
-3. Multiple file aggregation
-4. Model registry (or simplify to skill-based selection)
+**Key Insight:** Instead of building CLI flags for --git-diff, --dir, --files, we let the model use tools:
 
-### Phase 4: Distribution (Week 4)
+| Old Rust Way | New Python Way |
+|--------------|----------------|
+| `local-brain --git-diff` | `local-brain review` → model calls git_diff tool |
+| `local-brain --dir src --pattern "*.py"` | `local-brain review src/` → model calls list_directory, read_file |
+| `local-brain --files a.py,b.py` | `local-brain chat "review a.py and b.py"` → model decides |
 
-1. PyPI package
-2. Update Claude Code skill
-3. Migration guide for existing users
+**Result:** More flexible, less code, model can adapt to any request.
+
+### Phase 4: Distribution (Ready)
+
+- [x] pyproject.toml configured for PyPI
+- [x] CLI entry point: `local-brain`
+- [ ] Publish to PyPI: `uv build && uv publish`
+- [ ] Update Claude Code skill for Python version
 
 ### Phase 5: Deprecate Rust (Month 2)
 
 1. Announce deprecation
-2. Redirect repo
-3. Archive Rust version
+2. Update README to point to Python version
+3. Archive Rust version (keep for reference)
 
 ---
 
@@ -733,13 +810,15 @@ If spikes succeed:
 ~~1. **Run Spike 1** (today) - Validate tool calling works~~ ✅ DONE
 ~~2. **Run remaining spikes** (this week) - Build confidence~~ ✅ DONE
 ~~3. **Make go/no-go decision** (end of week)~~ ✅ APPROVED
+~~4. **Create Python package structure** - `local_brain/` with CLI, tools, skill loader~~ ✅ DONE
+~~5. **Implement agent loop** - Tool calling conversation loop~~ ✅ DONE
+~~6. **Create built-in skills** - chat, code-review, explain, commit-message, summarize~~ ✅ DONE
 
-**Ready for Phase 2:**
-1. **Create Python package structure** - `local_brain/` with CLI, tools, skill loader
-2. **Port code-review skill** - First skill definition in YAML
-3. **Implement basic CLI** - `--skill`, `--files`, `--model` flags
-4. **Add git integration** - `--git-diff` mode
-5. **Publish to PyPI** - `pip install local-brain`
+**Next Actions:**
+1. **Test more extensively** - Run against real codebases
+2. **Publish to PyPI** - `uv build && uv publish`
+3. **Update Claude Code skill** - Point to Python version
+4. **Write usage documentation** - Update README for Python CLI
 
 ---
 
