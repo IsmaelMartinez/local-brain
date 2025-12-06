@@ -137,7 +137,8 @@
     "design-review": "qwen2.5:3b",
     "thorough-review": "deepseek-coder-v2-8k",
     "security": "deepseek-coder-v2-8k",
-    "architecture": "deepseek-coder-v2-8k"
+    "architecture": "deepseek-coder-v2-8k",
+    "commit-message": "deepseek-coder-v2-8k"
   },
   "default_model": "deepseek-coder-v2-8k",
   "notes": {

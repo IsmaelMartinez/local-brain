@@ -366,6 +366,11 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
         return Ok(());
     }
 
+    // Check if commit message mode
+    if cli.task.as_deref() == Some("commit-message") {
+        return generate_commit_message(cli, &changed_files);
+    }
+
     eprintln!("Reviewing {} changed file(s)...", changed_files.len());
 
     // Review each file and collect markdown
@@ -398,6 +403,98 @@ fn handle_git_diff(cli: &Cli) -> Result<()> {
         for section in markdown_sections {
             println!("{}\n", section);
         }
+    }
+
+    Ok(())
+}
+
+/// Generate commit message from git diff
+///
+/// Analyzes the git diff output and uses the LLM to generate a Conventional Commits
+/// formatted commit message.
+///
+/// # Arguments
+/// * `cli` - CLI arguments (for model selection, timeout, dry-run mode)
+/// * `changed_files` - List of files that were changed
+///
+/// # Returns
+/// Returns Ok(()) on success, with the commit message printed to stdout
+///
+/// # Errors
+/// Returns error if:
+/// - Git diff command fails
+/// - No changes found to commit
+/// - Ollama call fails
+fn generate_commit_message(cli: &Cli, changed_files: &[PathBuf]) -> Result<()> {
+    // 1. Get actual diff content (not just filenames)
+    let output = Command::new("git")
+        .args(["diff", "--cached"])
+        .output()
+        .context("Failed to execute git diff --cached")?;
+
+    let mut diff_content =
+        String::from_utf8(output.stdout).context("Invalid UTF-8 from git diff --cached")?;
+
+    // If no staged changes, get all changes
+    if diff_content.trim().is_empty() {
+        let output = Command::new("git")
+            .args(["diff"])
+            .output()
+            .context("Failed to execute git diff")?;
+
+        diff_content = String::from_utf8(output.stdout).context("Invalid UTF-8 from git diff")?;
+    }
+
+    // Check if we have any changes
+    if diff_content.trim().is_empty() {
+        anyhow::bail!("No changes to commit");
+    }
+
+    eprintln!(
+        "Generating commit message for {} file(s)...",
+        changed_files.len()
+    );
+
+    // 2. Build commit message prompt
+    let (system_msg, user_msg) = build_commit_prompt(&diff_content, changed_files)?;
+
+    // 3. Select model (reuse existing logic)
+    let selected_model = select_model_adaptive(cli, changed_files.len())?;
+
+    // 4. Dry run mode: show what would be analyzed
+    if cli.dry_run {
+        println!("## Dry Run - Commit Message Generation\n");
+        println!("Files: {}", changed_files.len());
+        println!("Diff length: {} bytes", diff_content.len());
+        println!("Model: {}", selected_model);
+        println!("\nSystem prompt: {} chars", system_msg.len());
+        println!("User prompt: {} chars", user_msg.len());
+        return Ok(());
+    }
+
+    // 5. Call Ollama
+    let timeout_secs = cli.timeout.unwrap_or(120);
+    let commit_message = call_ollama(&system_msg, &user_msg, &selected_model, timeout_secs)?;
+
+    // 6. Output formatted result
+    let trimmed_message = commit_message.trim();
+
+    // Print the commit message to stdout
+    println!("{}", trimmed_message);
+    println!("\n---\n");
+
+    // Print helpful git commands to stderr
+    let first_line = trimmed_message.lines().next().unwrap_or("");
+
+    if trimmed_message.lines().count() == 1 {
+        // Single line commit
+        eprintln!("Run: git commit -m \"{}\"", first_line);
+    } else {
+        // Multi-line commit
+        eprintln!("For multi-line commit, run:");
+        eprintln!("git commit -F - <<'EOF'");
+        eprintln!("{}", trimmed_message);
+        eprintln!("EOF");
     }
 
     Ok(())
@@ -805,6 +902,68 @@ Provide your structured review in Markdown format with the specified headings."#
     Ok((system_prompt.to_string(), user_prompt))
 }
 
+/// Build system and user prompts for commit message generation
+///
+/// Creates prompts that guide the LLM to produce a Conventional Commits formatted
+/// commit message based on git diff output.
+///
+/// # Arguments
+/// * `diff_content` - The git diff output to analyze
+/// * `changed_files` - List of files that were changed
+///
+/// # Returns
+/// Returns a tuple of (system_prompt, user_prompt) both as Strings
+///
+/// # Example
+/// ```
+/// let diff = "diff --git a/main.rs\n+fn new() {}";
+/// let files = vec![PathBuf::from("main.rs")];
+/// let (system, user) = build_commit_prompt(diff, &files)?;
+/// ```
+fn build_commit_prompt(diff_content: &str, changed_files: &[PathBuf]) -> Result<(String, String)> {
+    // System prompt with Conventional Commits specification
+    let system_prompt = r#"You are an expert at writing concise, professional git commit messages following the Conventional Commits specification.
+
+Format:
+<type>(<scope>): <subject>
+
+<body>
+
+Rules:
+- type: feat, fix, docs, style, refactor, test, chore, perf
+- scope: optional, indicates the module/component affected
+- subject: imperative mood, no period, under 50 characters
+- body: optional, explain what and why (not how), wrap at 72 characters
+
+Examples:
+feat(auth): add OAuth2 authentication support
+fix(api): handle null response in user endpoint
+refactor(parser): simplify token matching logic
+
+Keep it concise and focused on the primary change."#;
+
+    // User prompt with file list and diff content
+    let files_list = changed_files
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let user_prompt = format!(
+        r#"Generate a commit message for these changes.
+
+Files changed: {}
+
+Git diff:
+{}
+
+Provide ONLY the commit message (no explanations or markdown formatting)."#,
+        files_list, diff_content
+    );
+
+    Ok((system_prompt.to_string(), user_prompt))
+}
+
 // ============================================================================
 // Ollama API Integration
 // ============================================================================
@@ -981,5 +1140,41 @@ mod tests {
         assert!(matches_pattern(&PathBuf::from("test.js"), "*.{js,ts}"));
         assert!(matches_pattern(&PathBuf::from("test.ts"), "*.{js,ts}"));
         assert!(!matches_pattern(&PathBuf::from("test.rs"), "*.{js,ts}"));
+    }
+
+    #[test]
+    fn test_build_commit_prompt() {
+        use std::path::PathBuf;
+
+        let diff = "diff --git a/test.rs b/test.rs\n+fn new_function() {}";
+        let files = vec![PathBuf::from("test.rs")];
+
+        let (system, user) = build_commit_prompt(diff, &files).unwrap();
+
+        // Verify system prompt contains Conventional Commits guidance
+        assert!(system.contains("Conventional Commits"));
+        assert!(system.contains("feat"));
+        assert!(system.contains("fix"));
+        assert!(system.contains("refactor"));
+
+        // Verify user prompt contains file list and diff
+        assert!(user.contains("test.rs"));
+        assert!(user.contains("diff --git"));
+        assert!(user.contains("new_function"));
+    }
+
+    #[test]
+    fn test_build_commit_prompt_multiple_files() {
+        use std::path::PathBuf;
+
+        let diff = "diff --git a/main.rs\n+code\ndiff --git a/lib.rs\n+more";
+        let files = vec![PathBuf::from("main.rs"), PathBuf::from("lib.rs")];
+
+        let (system, user) = build_commit_prompt(diff, &files).unwrap();
+
+        // Verify both files are listed
+        assert!(user.contains("main.rs"));
+        assert!(user.contains("lib.rs"));
+        assert!(system.contains("Conventional Commits"));
     }
 }
