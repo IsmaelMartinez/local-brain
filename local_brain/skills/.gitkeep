@@ -1,0 +1,4 @@
+# Custom skill definitions go here
+# Create a subdirectory with a skill.yaml file
+# Example: local_brain/skills/my-skill/skill.yaml
+
