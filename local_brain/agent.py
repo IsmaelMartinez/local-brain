@@ -88,6 +88,6 @@ def run_agent(
                 preview = result[:80] + "..." if len(result) > 80 else result
                 print(f"        ← {preview}")
 
-            messages.append({"role": "tool", "name": name, "content": result})
+            messages.append({"role": "tool", "tool_name": name, "content": result})
 
     return content or "Max turns reached."
