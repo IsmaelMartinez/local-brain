@@ -23,7 +23,7 @@ Use tools when they help answer the question. Be concise."""
 
 
 @click.command()
-@click.argument("prompt")
+@click.argument("prompt", required=False, default="")
 @click.option("--model", "-m", default="qwen3:latest", help="Model to use")
 @click.option("--verbose", "-v", is_flag=True, help="Show tool calls")
 @click.option("--version", "-V", is_flag=True, help="Show version")
@@ -42,6 +42,9 @@ def main(prompt: str, model: str, verbose: bool, version: bool):
     if version:
         click.echo(f"local-brain {__version__}")
         return
+
+    if not prompt:
+        raise click.UsageError("Missing argument 'PROMPT'. Run with --help for usage.")
 
     result = run_agent(
         prompt=prompt,
