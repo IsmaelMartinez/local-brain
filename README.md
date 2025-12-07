@@ -4,20 +4,18 @@ Chat with local Ollama models that can explore your codebase.
 
 ```bash
 local-brain "What files changed recently?"
-local-brain "Explain src/main.py"
-local-brain --review              # Code review
-local-brain --commit              # Generate commit message
+local-brain "Review the code in src/"
+local-brain "Generate a commit message"
+local-brain "Explain how auth works"
 ```
 
 ## Install
 
 ```bash
-pipx install local-brain    # Recommended
-# or
-pip install local-brain
+pipx install local-brain
 ```
 
-**Requires:** [Ollama](https://ollama.ai) running locally with a model:
+**Requires:** [Ollama](https://ollama.ai) with a model:
 ```bash
 ollama pull qwen3
 ```
@@ -25,25 +23,35 @@ ollama pull qwen3
 ## Usage
 
 ```bash
-# Ask anything - model uses tools to explore
+local-brain "prompt"              # Ask anything
+local-brain -v "prompt"           # Verbose (show tool calls)
+local-brain -m llama3.2 "prompt"  # Different model
+```
+
+The model has tools to explore your codebase — it reads files, checks git, lists directories on its own.
+
+## Examples
+
+```bash
+# Explore
 local-brain "What's in this repo?"
 local-brain "How does the auth system work?"
 
-# Review code
-local-brain --review                    # Review git changes
-local-brain --review src/utils.py       # Review specific file
+# Review
+local-brain "Review the git changes"
+local-brain "Review src/main.py for issues"
 
-# Generate commit message
-local-brain --commit
+# Git
+local-brain "Generate a commit message for staged changes"
+local-brain "Summarize recent commits"
 
-# Options
-local-brain -v "prompt"                 # Verbose (show tool calls)
-local-brain -m llama3.2 "prompt"        # Different model
+# Explain
+local-brain "Explain how agent.py works"
 ```
 
-## How It Works
+## Tools
 
-The model has tools to explore your codebase:
+The model can use:
 
 | Tool | What it does |
 |------|--------------|
@@ -51,24 +59,7 @@ The model has tools to explore your codebase:
 | `list_directory` | List files (glob patterns) |
 | `git_diff` | See code changes |
 | `git_status` | Check repo status |
-| `run_command` | Run safe shell commands |
-
-```bash
-$ local-brain -v "What Python files are here?"
-
-🤖 Model: qwen3:latest
-🔧 Tools: 9
-----------------------------------------
-
-📍 Turn 1
-   📞 1 tool call(s)
-      → list_directory(path='.', pattern='*.py')
-        ← main.py, setup.py, test_utils.py
-
-📍 Turn 2
-   ✅ Done
-The Python files are: main.py, setup.py, test_utils.py
-```
+| `run_command` | Run shell commands |
 
 ## Development
 
