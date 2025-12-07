@@ -1,14 +1,14 @@
 [project]
 name = "local-brain"
-version = "0.2.0"
-description = "Skill-based LLM tasks using local Ollama models with tool calling"
+version = "0.3.0"
+description = "Chat with local Ollama models that can explore your codebase"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
     {name = "Ismael Martinez", email = "ismaelmartinez@gmail.com"}
 ]
-keywords = ["ollama", "llm", "code-review", "cli", "tool-calling", "agents"]
+keywords = ["ollama", "llm", "cli", "tool-calling", "ai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -22,8 +22,6 @@ classifiers = [
 ]
 dependencies = [
     "ollama>=0.6.1",
-    "pyyaml>=6.0.0",
-    "jinja2>=3.0.0",
     "click>=8.0.0",
 ]
 

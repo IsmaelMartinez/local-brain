@@ -1,11 +1,3 @@
-"""Local Brain - Skill-based LLM tasks using local Ollama models with tool calling.
+"""Local Brain - Chat with local Ollama models that can use tools."""
 
-This package provides:
-- Agent loop with automatic tool calling
-- Built-in skills (chat, code-review, explain, commit-message, summarize)
-- Extensible tool system (file, git, shell operations)
-- YAML-based skill definitions with Jinja2 templates
-"""
-
-__version__ = "0.2.0"
-
+__version__ = "0.3.0"
