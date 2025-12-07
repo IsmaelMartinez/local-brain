@@ -310,6 +310,6 @@ Claude Code Skill
 
 ---
 
-*Updated: December 2024*
+*Updated: December 7, 2025*
 *Context: Claude Code skill delegation use case*
 

@@ -307,5 +307,5 @@ The question isn't "Is Local Brain good code?" (it is), but "Is it worth maintai
 ---
 
 *Report generated from multi-model research synthesis*  
-*Date: December 2024*
+*Date: December 7, 2025*
 
