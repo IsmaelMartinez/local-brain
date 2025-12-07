@@ -1,120 +1,76 @@
 # Local Brain
 
-[![CI](https://github.com/IsmaelMartinez/local-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/IsmaelMartinez/local-brain/actions/workflows/ci.yml)
-
-Offload code reviews to local Ollama LLMs for high-quality, fast feedback—optimized for Claude Code integration.
-
-## What It Does
-
-Perform AI code reviews locally using LLMs:
-- Review code for bugs, complexity, and refactoring opportunities
-- Review git changes, directories, or specific files
-- Analyze design docs, tickets, and other documents
-- Auto-select appropriate models based on review type
-- Output structured Markdown (no JSON parsing needed)
-
-## Get Started
-
-### Option 1: Claude Code Plugin (Easiest)
+Chat with local Ollama models that can explore your codebase.
 
 ```bash
-/plugin marketplace add IsmaelMartinez/local-brain
-/plugin install local-brain
+local-brain "What files changed recently?"
+local-brain "Review the code in src/"
+local-brain "Generate a commit message"
+local-brain "Explain how auth works"
 ```
 
-Then in Claude Code: "Review this file"
-
-### Option 2: Standalone Binary
+## Install
 
 ```bash
-# Pre-built binaries
-curl -L https://github.com/IsmaelMartinez/local-brain/releases/latest/download/local-brain-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]').tar.gz | tar xz
-
-# Or via Cargo
-cargo install local-brain
-
-# Your first review
-local-brain --files src/main.rs
+pipx install local-brain
 ```
 
-## Quick Commands
+**Requires:** [Ollama](https://ollama.ai) with a model:
+```bash
+ollama pull qwen3
+```
+
+## Usage
 
 ```bash
-# Single file
-local-brain --files src/main.rs
-
-# Multiple files
-local-brain --files src/main.rs,src/lib.rs
-
-# Git changes
-local-brain --git-diff
-
-# Directory
-local-brain --dir src --pattern "*.rs"
-
-# With specific model
-local-brain --model qwen2.5-coder:3b --files src/main.rs
-
-# Security review
-local-brain --task security --files auth.rs
+local-brain "prompt"              # Ask anything
+local-brain -v "prompt"           # Verbose (show tool calls)
+local-brain -m llama3.2 "prompt"  # Different model
 ```
 
-## Documentation
+The model has tools to explore your codebase — it reads files, checks git, lists directories on its own.
 
-### For Users
-- **[Quick Start](docs/QUICK_START.md)** — 5-minute setup
-- **[Usage Guide](docs/USAGE_GUIDE.md)** — Common patterns and options
-- **[Models](docs/MODELS.md)** — Model selection guide
-- **[Installation](docs/INSTALLATION.md)** — Detailed platform setup
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** — Common issues & solutions
+## Examples
 
-### For Contributors
-- **[Setup Guide](tech/SETUP.md)** — Development environment
-- **[Architecture](tech/ARCHITECTURE.md)** — System design & code structure
-- **[Testing](tech/TESTING.md)** — Test strategy
-- **[Contributing](CONTRIBUTING.md)** — Development workflow
-- **[Release](tech/RELEASE.md)** — Release process
+```bash
+# Explore
+local-brain "What's in this repo?"
+local-brain "How does the auth system work?"
 
-## Requirements
+# Review
+local-brain "Review the git changes"
+local-brain "Review src/main.py for issues"
 
-- Ollama running locally (default: http://localhost:11434)
-- At least one model: `ollama pull qwen2.5-coder:3b`
+# Git
+local-brain "Generate a commit message for staged changes"
+local-brain "Summarize recent commits"
 
-## Why Local Brain?
+# Explain
+local-brain "Explain how agent.py works"
+```
 
-- **Fast** — 10-30 second reviews (no Claude API calls)
-- **Offline** — Works without internet
-- **Cheap** — No per-request costs
-- **Private** — Code never leaves your machine
-- **Integrated** — Works seamlessly with Claude Code
+## Tools
 
-## Architecture
+The model can use (all read-only for security):
 
-- Single-file Rust CLI (~800 lines)
-- HTTP client for local Ollama API
-- Structured Markdown output
-- Zero external API calls
+| Tool | What it does |
+|------|--------------|
+| `read_file` | Read file contents |
+| `list_directory` | List files (glob patterns) |
+| `file_info` | Get file metadata |
+| `git_diff` | See code changes |
+| `git_status` | Check repo status |
+| `run_command` | Run safe shell commands |
 
-See [Architecture Guide](tech/ARCHITECTURE.md) for details.
+## Development
 
-## Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-Quick start for developers:
 ```bash
 git clone https://github.com/IsmaelMartinez/local-brain.git
 cd local-brain
-cargo build --release
-./target/release/local-brain --files src/main.rs
+uv sync
+uv run local-brain "Hello!"
 ```
 
 ## License
 
-MIT License - see LICENSE file
-
-## Links
-
-- **GitHub** — https://github.com/IsmaelMartinez/local-brain
-- **Issues** — https://github.com/IsmaelMartinez/local-brain/issues
-- **Releases** — https://github.com/IsmaelMartinez/local-brain/releases
+MIT

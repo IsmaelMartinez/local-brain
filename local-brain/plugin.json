@@ -1,7 +1,7 @@
 {
   "name": "local-brain",
-  "version": "0.1.0",
-  "description": "Offload routine tasks (code review, doc analysis, planning) to local Ollama LLM models",
+  "version": "0.3.0",
+  "description": "Skill-based LLM tasks using local Ollama models with automatic tool calling",
   "author": {
     "name": "Ismael Martinez",
     "email": "ismaelmartinez@gmail.com"
@@ -13,7 +13,8 @@
     "code-review",
     "ollama",
     "llm",
-    "rust",
+    "python",
+    "tool-calling",
     "cli"
   ],
   "skills": [
