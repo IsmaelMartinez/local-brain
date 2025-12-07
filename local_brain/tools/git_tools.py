@@ -1,7 +1,6 @@
 """Git tools for working with version control."""
 
 import subprocess
-from pathlib import Path
 
 
 def _run_git(*args: str) -> tuple[str, str, int]:

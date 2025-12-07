@@ -9,12 +9,14 @@ Each tool must have:
 The ollama-python library automatically generates JSON schemas from these.
 """
 
+from typing import Callable
+
 from .file_tools import read_file, list_directory, write_file, file_info
 from .git_tools import git_diff, git_changed_files, git_status, git_log
 from .shell_tools import run_command
 
 # Tool registry - maps tool names to functions
-TOOL_REGISTRY = {
+TOOL_REGISTRY: dict[str, Callable[..., str]] = {
     # File tools
     "read_file": read_file,
     "list_directory": list_directory,

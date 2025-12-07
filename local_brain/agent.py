@@ -1,5 +1,7 @@
 """Agent - the core loop that handles tool calling conversations."""
 
+from typing import Any
+
 import ollama
 
 from .tools import TOOL_REGISTRY
@@ -49,7 +51,7 @@ def run_agent(
         tool_calls = response.message.tool_calls
         
         # Add assistant message
-        msg = {"role": "assistant", "content": content}
+        msg: dict[str, Any] = {"role": "assistant", "content": content}
         if tool_calls:
             msg["tool_calls"] = tool_calls
         messages.append(msg)
@@ -73,9 +75,10 @@ def run_agent(
                 print(f"      → {name}({args_str})")
             
             # Execute
-            if name in TOOL_REGISTRY:
+            tool_fn = TOOL_REGISTRY.get(name)
+            if tool_fn:
                 try:
-                    result = TOOL_REGISTRY[name](**args)
+                    result = tool_fn(**args)
                 except Exception as e:
                     result = f"Error: {e}"
             else:
