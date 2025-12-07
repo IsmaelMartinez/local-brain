@@ -11,16 +11,15 @@ The ollama-python library automatically generates JSON schemas from these.
 
 from typing import Callable
 
-from .file_tools import read_file, list_directory, write_file, file_info
+from .file_tools import read_file, list_directory, file_info
 from .git_tools import git_diff, git_changed_files, git_status, git_log
 from .shell_tools import run_command
 
-# Tool registry - maps tool names to functions
+# Tool registry - maps tool names to functions (read-only for security)
 TOOL_REGISTRY: dict[str, Callable[..., str]] = {
-    # File tools
+    # File tools (read-only)
     "read_file": read_file,
     "list_directory": list_directory,
-    "write_file": write_file,
     "file_info": file_info,
     # Git tools
     "git_diff": git_diff,
@@ -37,14 +36,13 @@ ALL_TOOLS = list(TOOL_REGISTRY.values())
 
 def get_tools(tool_names: list[str] | None = None) -> list:
     """Get tool functions by name.
-    
+
     Args:
         tool_names: List of tool names to get. If None, returns all tools.
-        
+
     Returns:
         List of tool functions.
     """
     if tool_names is None:
         return ALL_TOOLS
     return [TOOL_REGISTRY[name] for name in tool_names if name in TOOL_REGISTRY]
-

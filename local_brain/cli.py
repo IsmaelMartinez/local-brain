@@ -12,12 +12,12 @@ SYSTEM_PROMPT = """You are a helpful assistant with access to tools for explorin
 Available tools:
 - read_file: Read file contents
 - list_directory: List files (supports glob patterns)
-- git_diff: See code changes  
+- file_info: Get file metadata (size, modified time)
+- git_diff: See code changes
 - git_status: Check repo status
 - git_changed_files: List changed files
 - git_log: View commit history
-- run_command: Run safe shell commands
-- write_file: Write to files
+- run_command: Run safe read-only shell commands
 
 Use tools when they help answer the question. Be concise."""
 
@@ -29,20 +29,20 @@ Use tools when they help answer the question. Be concise."""
 @click.option("--version", "-V", is_flag=True, help="Show version")
 def main(prompt: str, model: str, verbose: bool, version: bool):
     """Chat with local Ollama models that can explore your codebase.
-    
+
     Examples:
-    
+
     \b
         local-brain "What files are in this repo?"
         local-brain "Review the recent git changes"
         local-brain "Generate a commit message for staged changes"
         local-brain "Explain how src/main.py works"
-        local-brain -v "What changed?" 
+        local-brain -v "What changed?"
     """
     if version:
         click.echo(f"local-brain {__version__}")
         return
-    
+
     result = run_agent(
         prompt=prompt,
         system=SYSTEM_PROMPT,
@@ -50,7 +50,7 @@ def main(prompt: str, model: str, verbose: bool, version: bool):
         tools=ALL_TOOLS,
         verbose=verbose,
     )
-    
+
     click.echo(result)
 
 

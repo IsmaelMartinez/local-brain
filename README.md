@@ -51,15 +51,16 @@ local-brain "Explain how agent.py works"
 
 ## Tools
 
-The model can use:
+The model can use (all read-only for security):
 
 | Tool | What it does |
 |------|--------------|
 | `read_file` | Read file contents |
 | `list_directory` | List files (glob patterns) |
+| `file_info` | Get file metadata |
 | `git_diff` | See code changes |
 | `git_status` | Check repo status |
-| `run_command` | Run shell commands |
+| `run_command` | Run safe shell commands |
 
 ## Development
 
