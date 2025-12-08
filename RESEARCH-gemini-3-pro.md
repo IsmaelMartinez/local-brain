@@ -12,7 +12,7 @@ The `local_brain` repository currently implements a custom agent framework with 
 
 **Critique**:
 *   The implementation is clean but "reinvents the wheel."
-*   The shell tool's security relies on a blacklist/whitelist regex approach, which is notoriously difficult to get right compared to sandboxed environments.
+*   The shell tool's security relies on an allow-list/block-list approach, which is notoriously difficult to get right compared to sandboxed environments.
 *   The agent loop is basic and lacks advanced features like memory management, planning, or error correction, which mature frameworks provide.
 
 ## 2. Open Source Alternatives
