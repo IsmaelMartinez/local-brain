@@ -7,6 +7,17 @@ description: Chat with local Ollama models that can explore your codebase using 
 
 Chat with local Ollama models that have tools to explore your codebase.
 
+## Installation
+
+```bash
+uv pip install local-brain
+```
+
+Or with pipx:
+```bash
+pipx install local-brain
+```
+
 ## Usage
 
 ```bash
@@ -25,12 +36,17 @@ local-brain "Explain how src/main.py works"
 local-brain "Find all TODO comments"
 ```
 
-## Prerequisites
+## Available Tools
 
-- Ollama running locally
-- `pipx install local-brain`
-- `ollama pull qwen3`
+The model assumes these tools are available and uses them directly:
 
-## Tools
+- `read_file(path)` - Read file contents
+- `list_directory(path, pattern)` - List files with glob patterns
+- `file_info(path)` - Get file metadata (size, modified time)
+- `git_diff(staged, file_path)` - Show code changes
+- `git_status()` - Check repo status
+- `git_changed_files(staged, include_untracked)` - List changed files
+- `git_log(count, oneline)` - View commit history
+- `run_command(command)` - Run safe read-only shell commands
 
-The model can: read files, list directories, check git status/diff/log, run safe shell commands.
+All tools return human-readable output or error messages on failure.

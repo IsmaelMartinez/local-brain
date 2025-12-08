@@ -12,6 +12,11 @@ local-brain "Explain how auth works"
 ## Install
 
 ```bash
+uv pip install local-brain
+```
+
+Or with pipx:
+```bash
 pipx install local-brain
 ```
 
