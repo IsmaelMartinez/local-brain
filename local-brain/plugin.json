@@ -1,6 +1,6 @@
 {
   "name": "local-brain",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Skill-based LLM tasks using local Ollama models with automatic tool calling",
   "author": {
     "name": "Ismael Martinez",
