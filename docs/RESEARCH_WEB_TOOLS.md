@@ -189,3 +189,5 @@ Instead of building tools directly, we could integrate with **Model Context Prot
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Ollama Tool Calling](https://ollama.com/search?c=tool)
 
+
+
