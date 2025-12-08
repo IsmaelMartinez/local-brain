@@ -103,7 +103,7 @@ After multi-model research analysis, the decision is to **keep the current imple
 | **LlamaIndex** | ❌ Rejected | RAG-focused, not tool-focused |
 | **AutoGen** | ❌ Rejected | Multi-agent, overkill |
 | **CrewAI** | ❌ Rejected | Multi-agent, overkill |
-| **Smolagents** | 🔄 Evaluate | Promising code-as-tool pattern |
+| [**Smolagents**](https://github.com/huggingface/smolagents) | 🔄 Evaluate | Promising code-as-tool pattern |
 | **MCP Bridge** | 🔮 Future | If standard gains traction |
 
 ---
