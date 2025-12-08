@@ -21,7 +21,7 @@ This document reviews the current `local-brain` repository and analyzes open-sou
    - **File tools**: `read_file`, `list_directory`, `file_info`
    - **Git tools**: `git_diff`, `git_status`, `git_changed_files`, `git_log`
    - **Shell tools**: `run_command` (with strict allowlist for security)
-   - ~300 lines of code total
+   - ~419 lines of code total
 
 3. **CLI Interface** (`cli.py`): Simple Click-based command-line interface
    - Single command with prompt argument
