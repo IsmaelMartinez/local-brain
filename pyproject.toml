@@ -1,6 +1,6 @@
 [project]
 name = "local-brain"
-version = "0.3.0"
+version = "0.3.1"
 description = "Chat with local Ollama models that can explore your codebase"
 readme = "README.md"
 license = {text = "MIT"}
