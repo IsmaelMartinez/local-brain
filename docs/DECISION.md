@@ -104,7 +104,7 @@ After multi-model research analysis, the decision is to **keep the current imple
 | **AutoGen** | ❌ Rejected | Multi-agent, overkill |
 | **CrewAI** | ❌ Rejected | Multi-agent, overkill |
 | [**Smolagents**](https://github.com/huggingface/smolagents) | 🔄 Evaluate | Promising code-as-tool pattern |
-| **MCP Bridge** | 🔮 Future | If standard gains traction |
+| [**MCP Bridge**](https://modelcontextprotocol.io/) | 🔮 Future | If standard gains traction |
 
 ---
 
