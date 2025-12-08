@@ -7,6 +7,17 @@ description: Chat with local Ollama models that can explore your codebase using 
 
 Chat with local Ollama models that have tools to explore your codebase.
 
+## Installation
+
+```bash
+uv pip install local-brain
+```
+
+Or with pipx:
+```bash
+pipx install local-brain
+```
+
 ## Usage
 
 ```bash
@@ -24,12 +35,6 @@ local-brain "Generate a commit message"
 local-brain "Explain how src/main.py works"
 local-brain "Find all TODO comments"
 ```
-
-## Prerequisites
-
-- Ollama running locally
-- `uv pip install local-brain` (or `pipx install local-brain`)
-- `ollama pull qwen3` (or any other model)
 
 ## Available Tools
 
