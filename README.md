@@ -28,12 +28,28 @@ ollama pull qwen3
 ## Usage
 
 ```bash
-local-brain "prompt"              # Ask anything
-local-brain -v "prompt"           # Verbose (show tool calls)
-local-brain -m llama3.2 "prompt"  # Different model
+local-brain "prompt"                    # Ask anything (auto-selects best model)
+local-brain -v "prompt"                 # Verbose (show tool calls)
+local-brain -m qwen2.5-coder:7b "prompt"  # Specific model
+local-brain --list-models               # Show available models
+local-brain --root /path/to/project "prompt"  # Set project root
 ```
 
 The model has tools to explore your codebase — it reads files, checks git, lists directories on its own.
+
+## Model Discovery
+
+Local Brain automatically detects installed Ollama models and picks the best one:
+
+```bash
+local-brain --list-models
+```
+
+**Recommended models:**
+- `qwen3:latest` — General purpose (default)
+- `qwen2.5-coder:7b` — Code-focused
+- `llama3.2:3b` — Fast, lightweight
+- `mistral:7b` — Balanced
 
 ## Examples
 
@@ -54,9 +70,19 @@ local-brain "Summarize recent commits"
 local-brain "Explain how agent.py works"
 ```
 
+## Security
+
+All operations are **restricted to the project root** (path jailing):
+
+- ✅ Read files within project directory
+- ✅ Run safe, read-only shell commands
+- ❌ Access files outside project root
+- ❌ Read sensitive files (`.env`, keys)
+- ❌ Network access
+
 ## Tools
 
-The model can use (all read-only for security):
+The model can use (all read-only):
 
 | Tool | What it does |
 |------|--------------|
