@@ -118,8 +118,7 @@ BLOCKED_PATTERNS = {
     ".env.production",
     "*.pem",  # Private keys
     "*.key",
-    "id_rsa",
-    "id_ed25519",
+    "id_*",
 }
 
 

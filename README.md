@@ -163,6 +163,13 @@ local_brain/
 - **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
 - **Docker Sandbox** — Stronger isolation via container when Docker is available
 
+### Architecture Decisions
+
+See [docs/adrs/](./docs/adrs/) for Architecture Decision Records:
+- [ADR-001](./docs/adrs/001-custom-implementation.md) — Why custom implementation over frameworks
+- [ADR-002](./docs/adrs/002-smolagents.md) — Why Smolagents for code execution
+- [ADR-003](./docs/adrs/003-no-web-tools.md) — Why no web tools
+
 ---
 
 ## Adding New Plugins
