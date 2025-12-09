@@ -2,7 +2,7 @@
 
 A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extends Claude with local capabilities. The first skill lets Claude delegate codebase exploration to local Ollama models.
 
-## 🔌 Install Marketplace
+## Install Marketplace
 
 Add this marketplace to Claude Code:
 
@@ -16,7 +16,7 @@ Then install the plugin:
 /plugin install local-brain@local-brain-marketplace
 ```
 
-## 🧠 Available Plugins
+## Available Plugins
 
 ### [`local-brain`](./local-brain/skills/local-brain/SKILL.md)
 
