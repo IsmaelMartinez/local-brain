@@ -1,11 +1,8 @@
 {
   "name": "local-brain-marketplace",
   "owner": {
-    "name": "Ismael Martinez",
-    "email": "ismaelmartinez@gmail.com"
+    "name": "Ismael Martinez Ramos"
   },
-  "description": "A marketplace of skills that extend Claude Code with local capabilities",
-  "homepage": "https://github.com/IsmaelMartinez/local-brain",
   "plugins": [
     {
       "name": "local-brain",

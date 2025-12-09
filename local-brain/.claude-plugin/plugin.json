@@ -3,20 +3,11 @@
   "version": "0.3.5",
   "description": "Delegate codebase exploration to local Ollama models with automatic tool calling",
   "author": {
-    "name": "Ismael Martinez",
-    "email": "ismaelmartinez@gmail.com"
+    "name": "Ismael Martinez Ramos",
+    "url": "https://github.com/IsmaelMartinez"
   },
   "homepage": "https://github.com/IsmaelMartinez/local-brain",
   "repository": "https://github.com/IsmaelMartinez/local-brain",
   "license": "MIT",
-  "keywords": [
-    "code-review",
-    "ollama",
-    "llm",
-    "python",
-    "tool-calling",
-    "cli",
-    "claude-skill"
-  ]
+  "keywords": ["ollama", "llm", "code-review", "tool-calling", "local"]
 }
-
