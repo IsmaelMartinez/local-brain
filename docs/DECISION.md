@@ -1,14 +1,14 @@
 # Local Brain: Architecture Decision Record
 
-**Date:** December 8, 2025  
-**Status:** Approved  
+**Date:** December 9, 2025  
+**Status:** Approved (Phase 2 Complete)  
 **Context:** Claude Code skill delegation to local Ollama models
 
 ---
 
 ## Executive Summary
 
-After multi-model research analysis, the decision is to **keep the current implementation** with incremental improvements, while evaluating Smolagents as a future option.
+After multi-model research analysis and spike validation, we have **implemented Smolagents** as the core execution engine. This replaces the custom tool-calling approach with a more secure, code-as-tool pattern.
 
 ---
 
@@ -17,42 +17,44 @@ After multi-model research analysis, the decision is to **keep the current imple
 ```
 ┌─────────────┐     delegates      ┌─────────────┐     calls      ┌─────────┐
 │ Claude Code │ ──────────────────►│ Local Brain │ ──────────────►│ Ollama  │
-│   (Cloud)   │                    │   (Local)   │                │ (Local) │
+│   (Cloud)   │                    │ (Smolagents)│                │ (Local) │
 │             │◄────────────────── │             │◄────────────── │         │
 └─────────────┘     returns        └─────────────┘    responds    └─────────┘
-                    results                           with tools
+                    results                        with code execution
 ```
 
 **Key Insight:** Local Brain is NOT a standalone CLI competing with Aider. It's a **delegation target** for Claude Code skills, providing local model access with codebase tools.
 
 ---
 
-## Decision: Keep Current Implementation
+## Decision: Implement Smolagents (Phase 2 Complete)
 
-### Why NOT Aider
-- Aider is **interactive** (designed for humans in terminals)
-- No programmatic API for delegation
-- Expects user input/confirmation loops
-- Cannot be called as a subprocess with structured results
+### Why Smolagents
 
-### Why NOT Frameworks (LangChain, LlamaIndex, etc.)
-- **Overkill**: 50+ dependencies vs 2 (ollama, click)
-- **Abstraction overhead**: We talk directly to Ollama
-- **Maintenance burden**: Frameworks evolve, APIs break
-- Current ~450 lines of focused code is the right size
+After evaluating multiple approaches, Smolagents was chosen because:
 
-### Why Keep Current
-- ✅ **Works** for the delegation use case
-- ✅ **Minimal** dependencies
-- ✅ **Focused** on read-only codebase exploration
-- ✅ **Simple** to maintain and extend
-- ✅ **Native** Ollama integration
+- ✅ **Code-as-tool pattern** — Model writes Python code instead of calling fixed tools
+- ✅ **Better security** — LocalPythonExecutor sandbox vs regex allowlists
+- ✅ **Simpler codebase** — No separate tool registry or allowlist maintenance
+- ✅ **LiteLLM integration** — Works seamlessly with Ollama
+- ✅ **HuggingFace maintained** — Active development and support
+
+### Why NOT Other Options
+
+| Alternative | Verdict | Reason |
+|-------------|---------|--------|
+| **Aider** | ❌ Rejected | Interactive, not programmable |
+| **LangChain** | ❌ Rejected | Too heavy (50+ deps), overkill |
+| **LlamaIndex** | ❌ Rejected | RAG-focused, not tool-focused |
+| **AutoGen** | ❌ Rejected | Multi-agent, overkill |
+| **CrewAI** | ❌ Rejected | Multi-agent, overkill |
+| **Custom tools/** | ❌ Replaced | Regex allowlists less secure than sandbox |
 
 ---
 
 ## Roadmap
 
-### Phase 1: Now - Improve Current Implementation
+### Phase 1: ✅ Complete - Improve Current Implementation
 
 | Task | Priority | Status |
 |------|----------|--------|
@@ -61,104 +63,28 @@ After multi-model research analysis, the decision is to **keep the current imple
 | Add smart model selection based on task | Medium | ✅ Done |
 | Add tests for allowlist/denylist behavior | Medium | ✅ Done |
 
-### Phase 2: Next - Evaluate Smolagents + Sandboxing
+### Phase 2: ✅ Complete - Implement Smolagents
 
-**What:** Code-as-tool pattern where model writes Python instead of calling fixed tools.
+| Task | Priority | Status |
+|------|----------|--------|
+| Spike 1: Test Smolagents + Ollama via LiteLLM | High | ✅ Done |
+| Spike 2: Validate code-as-tool pattern | High | ✅ Done |
+| Spike 3: Test LocalPythonExecutor sandbox | High | ✅ Done |
+| Spike 4: Test Qwen-Coder code quality | High | ✅ Done |
+| Implement smolagent.py with CodeAgent | High | ✅ Done |
+| Convert tools to @tool decorator | High | ✅ Done |
+| Remove legacy tools/ folder | Medium | ✅ Done |
+| Update CLI to use Smolagents | High | ✅ Done |
+| Add tests for new implementation | High | ✅ Done |
 
-**Why consider:**
-- Eliminates tool maintenance entirely
-- **Sandboxed execution** (better than regex allowlists)
-- Model writes `import os; os.listdir('.')` instead of calling `list_directory` tool
-- Smolagents requires minimum security level for code execution
+#### Spike Results Summary
 
-**Experiment:**
-1. Create `feature/smolagents` branch
-2. Test with Qwen-Coder via Ollama
-3. Validate code generation quality
-4. If works: Replace `local_brain/tools/`
-5. If doesn't: Keep current approach
+All 4 spikes passed (see `spikes/SPIKE_RESULTS.md` for details):
 
-#### Sandboxing Research (Required for Smolagents)
-
-**Requirement:** Smolagents requires sandboxing for safe code execution. We need a solution that can ship with the tool (no external services).
-
-##### Sandboxing Options Evaluated
-
-| Solution | Type | Ship-able | Pros | Cons |
-|----------|------|-----------|------|------|
-| **LocalPythonExecutor** | smolagents built-in | ✅ Yes | No deps, restricted imports, no file I/O | Limited isolation, not true sandbox |
-| **E2B Sandbox** | Cloud service | ❌ No | Strong isolation | Requires API key, external service |
-| **Docker Sandbox** | Container | ⚠️ Partial | Strong isolation | Requires Docker installed |
-| **WebAssembly (Pyodide+Deno)** | WASM | ⚠️ Partial | Good isolation | Complex setup, limited Python libs |
-| **RestrictedPython** | AST-based | ✅ Yes | No deps, pure Python | Bypassable, limited security |
-| **bubblewrap (bwrap)** | Linux syscall | ❌ No | Strong isolation | Linux-only, needs installation |
-
-##### Recommended Approach: LocalPythonExecutor (Phase 2a)
-
-smolagents' `LocalPythonExecutor` provides basic security without external dependencies:
-
-```python
-from smolagents.local_python_executor import LocalPythonExecutor
-
-# Built-in restrictions:
-# - No file I/O operations (open, write, etc.)
-# - Restricted import list (safe modules only)
-# - No subprocess/os.system calls
-# - Execution timeout
-```
-
-**Trade-offs:**
-- ✅ Ships with `pip install smolagents` — no extra setup
-- ✅ Better than current regex allowlist approach
-- ⚠️ Not a true sandbox (runs in same process)
-- ⚠️ Determined attacker could potentially bypass
-
-##### Future Enhancement: Docker Sandbox (Phase 2b)
-
-For stronger isolation when available:
-
-```python
-from smolagents import DockerSandbox
-
-# Strong isolation:
-# - Separate container per execution
-# - Network isolation
-# - Resource limits
-# - File system isolation
-```
-
-**Trade-offs:**
-- ✅ True process isolation
-- ✅ Works on macOS/Linux/Windows (with Docker)
-- ⚠️ Requires Docker to be installed
-- ⚠️ Slower execution (container startup)
-
-##### Decision Matrix
-
-| User Environment | Recommended Sandbox |
-|------------------|---------------------|
-| Docker available | Docker Sandbox (strongest) |
-| Docker unavailable | LocalPythonExecutor (adequate) |
-| Security-critical | Don't use smolagents, keep current tools |
-
-#### Web Tools Consideration
-
-**Decision:** ❌ **NOT adding web tools in Phase 1 or 2**
-
-**Reasons:**
-- **Security risk**: Data exfiltration, SSRF attacks, prompt injection from fetched content
-- **Complexity**: URL validation, rate limiting, content sanitization
-- **Scope creep**: Local Brain is for *local* codebase exploration
-- **Dependencies**: Would add `httpx`, `beautifulsoup4`, `duckduckgo-search`
-
-**If web tools are needed later (Phase 3+):**
-- Consider **Smolagents with Docker sandbox** for safe web access
-- Docker provides network isolation at container level
-- See [RESEARCH_WEB_TOOLS.md](./RESEARCH_WEB_TOOLS.md) for implementation details
-
-**Alternative for documentation lookup:**
-- Claude Code already has web access
-- Delegate web research to Claude, local execution to Local Brain
+1. **Smolagents + Ollama** — Seamless integration via LiteLLM
+2. **Code-as-tool** — Model generates clean, executable Python
+3. **Sandbox security** — File I/O, subprocess, dangerous imports all blocked
+4. **Code quality** — Qwen-Coder produces high-quality code
 
 ### Phase 3: Future - Consider MCP Bridge
 
@@ -179,57 +105,13 @@ from smolagents import DockerSandbox
 
 | Task | Notes |
 |------|-------|
+| Docker Sandbox | Stronger isolation when Docker available |
 | Retry logic for Ollama calls | Low priority, Ollama is local and usually reliable |
 | Streaming support | Nice-to-have for long responses |
 
 ---
 
-## Model Discovery & Selection
-
-Local Brain now includes smart model management:
-
-### Model Discovery
-```python
-# Automatically detects installed Ollama models
-ollama.list()  # Returns all installed models with metadata
-```
-
-### Recommended Models (Tool-Calling Capable)
-
-| Model | Size | Tool Support | Best For |
-|-------|------|--------------|----------|
-| `qwen3:latest` | 4.4GB | ✅ Excellent | General purpose, default |
-| `qwen2.5-coder:7b` | 4.7GB | ✅ Good | Code-focused tasks |
-| `llama3.2:3b` | 2.0GB | ✅ Good | Fast, lightweight |
-| `mistral:7b` | 4.1GB | ✅ Good | Balanced performance |
-| `deepseek-coder-v2:16b` | 8.9GB | ✅ Good | Complex code analysis |
-
-### Auto-Selection Logic
-1. Check installed models against recommended list
-2. If recommended model found → use it
-3. If multiple found → prefer by capability tier
-4. If none found → offer to pull recommended model
-
----
-
-## Alternatives Considered
-
-| Alternative | Verdict | Reason |
-|-------------|---------|--------|
-| **Aider** | ❌ Rejected | Interactive, not programmable |
-| **LangChain** | ❌ Rejected | Too heavy (50+ deps), overkill |
-| **LlamaIndex** | ❌ Rejected | RAG-focused, not tool-focused |
-| **AutoGen** | ❌ Rejected | Multi-agent, overkill |
-| **CrewAI** | ❌ Rejected | Multi-agent, overkill |
-| [**Smolagents**](https://github.com/huggingface/smolagents) | 🔄 Evaluate Phase 2 | Code-as-tool + LocalPythonExecutor sandbox |
-| [**MCP Bridge**](https://modelcontextprotocol.io/) | 🔮 Future Phase 3 | If standard gains traction |
-| **Web Tools** | ❌ Rejected | Security risk, out of scope |
-| **E2B Sandbox** | ❌ Rejected | Requires external service/API key |
-| **RestrictedPython** | ⚠️ Considered | Bypassable, weaker than LocalPythonExecutor |
-
----
-
-## Current Architecture (Approved)
+## Current Architecture (v0.4.0)
 
 ```
 Claude Code Skill
@@ -240,33 +122,88 @@ Claude Code Skill
             │       │
             │       └──► ollama.list() → smart model selection
             │
-            ├──► agent.py (tool loop)
+            ├──► smolagent.py (Smolagents CodeAgent)
             │       │
-            │       └──► ollama.chat(tools=[...])
+            │       ├──► LiteLLMModel → Ollama
+            │       │
+            │       └──► Tools (@tool decorator)
+            │               ├── read_file [JAILED]
+            │               ├── list_directory [JAILED]
+            │               ├── file_info [JAILED]
+            │               ├── git_diff
+            │               ├── git_status
+            │               ├── git_log
+            │               └── git_changed_files
             │
-            └──► tools/
-                    ├── file_tools.py   (read_file, list_directory, file_info) [JAILED]
-                    ├── git_tools.py    (git_diff, git_status, git_log, git_changed_files)
-                    └── shell_tools.py  (run_command with allowlist) [JAILED]
+            └──► security.py (path jailing)
 ```
 
 ### Security Features
-- **Path jailing**: All file operations restricted to project root
-- **Command allowlist**: Only read-only shell commands permitted
-- **No network access**: Prevents data exfiltration
-- **Truncation limits**: Large outputs capped to prevent context overflow
+
+- **LocalPythonExecutor sandbox** — Smolagents' built-in sandboxed execution
+- **Path jailing** — All file operations restricted to project root
+- **Import restrictions** — Dangerous imports (subprocess, socket, etc.) blocked
+- **No network access** — Prevents data exfiltration
+- **Truncation limits** — Large outputs capped to prevent context overflow
 
 ### Strengths
-- Direct `ollama-python` SDK usage
-- ~500 lines of focused code
-- 2 dependencies only
+
+- **Smolagents CodeAgent** for secure code execution
+- **LiteLLM** for Ollama integration
+- ~350 lines of focused code (down from ~500)
+- 4 dependencies (ollama, click, smolagents, litellm)
 - Read-only security posture
 - Smart model discovery
 
-### Known Limitations
-- Regex-based command allowlist (fragile, Phase 2 will evaluate Smolagents sandbox)
-- Basic error handling
-- No streaming support (yet)
+### Trade-offs Accepted
+
+- Python 3.10-3.13 required (grpcio build issue with 3.14)
+- Additional dependencies vs original 2
+- Slightly slower execution (~7-35 seconds per task)
+
+---
+
+## Model Discovery & Selection
+
+Local Brain includes smart model management:
+
+### Model Discovery
+```python
+# Automatically detects installed Ollama models
+ollama.list()  # Returns all installed models with metadata
+```
+
+### Recommended Models (Code Generation Capable)
+
+| Model | Size | Code Quality | Best For |
+|-------|------|--------------|----------|
+| `qwen3:latest` | 4.4GB | ✅ Excellent | General purpose, default |
+| `qwen2.5-coder:7b` | 4.7GB | ✅ Excellent | Code-focused tasks |
+| `llama3.2:3b` | 2.0GB | ✅ Good | Fast, lightweight |
+| `mistral:7b` | 4.1GB | ✅ Good | Balanced performance |
+| `deepseek-coder-v2:16b` | 8.9GB | ✅ Excellent | Complex code analysis |
+
+### Auto-Selection Logic
+1. Check installed models against recommended list
+2. If recommended model found → use it
+3. If multiple found → prefer by capability tier
+4. If none found → offer to pull recommended model
+
+---
+
+## Web Tools Consideration
+
+**Decision:** ❌ **NOT adding web tools**
+
+**Reasons:**
+- **Security risk**: Data exfiltration, SSRF attacks, prompt injection from fetched content
+- **Complexity**: URL validation, rate limiting, content sanitization
+- **Scope creep**: Local Brain is for *local* codebase exploration
+- **Dependencies**: Would add more packages
+
+**Alternative for documentation lookup:**
+- Claude Code already has web access
+- Delegate web research to Claude, local execution to Local Brain
 
 ---
 
@@ -292,11 +229,11 @@ The key disagreement was resolved by recognizing the **actual use case** (delega
 
 ## Conclusion
 
-**Keep Local Brain simple and focused.** It serves a specific purpose (Claude Code → Ollama delegation) that mature alternatives like Aider don't address. Improve incrementally, evaluate Smolagents when ready, and watch MCP adoption for future opportunities.
+**Local Brain now uses Smolagents for secure, sandboxed code execution.** The code-as-tool pattern simplifies the codebase while improving security over the previous regex-based allowlist approach.
 
-**No web tools** - Claude Code handles web research; Local Brain handles local execution.
+**No web tools** — Claude Code handles web research; Local Brain handles local execution.
 
 ---
 
-*Decision approved: December 8, 2025*
-
+*Phase 1 completed: December 8, 2025*  
+*Phase 2 completed: December 9, 2025*

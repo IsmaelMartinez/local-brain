@@ -25,10 +25,10 @@ Delegate codebase exploration to local Ollama models. Claude offloads read-only 
 ```
 ┌─────────────┐     delegates      ┌─────────────┐     calls      ┌─────────┐
 │ Claude Code │ ──────────────────►│ Local Brain │ ──────────────►│ Ollama  │
-│   (Cloud)   │                    │    (CLI)    │                │ (Local) │
+│   (Cloud)   │                    │ (Smolagents)│                │ (Local) │
 │             │◄────────────────── │             │◄────────────── │         │
 └─────────────┘     returns        └─────────────┘    responds    └─────────┘
-                    results                           with tools
+                    results                        with code execution
 ```
 
 **What Claude can delegate:**
@@ -48,8 +48,7 @@ local-brain/                          # MARKETPLACE ROOT
 ├── .claude-plugin/
 │   └── marketplace.json              # Marketplace manifest
 └── local-brain/                      # PLUGIN
-    ├── .claude-plugin/
-    │   └── plugin.json               # Plugin manifest
+    ├── plugin.json                   # Plugin manifest
     └── skills/
         └── local-brain/
             └── SKILL.md              # Skill documentation
@@ -111,28 +110,51 @@ local-brain --list-models
 
 ### Tools
 
-The model has these read-only tools:
+Custom read-only tools registered with Smolagents' `@tool` decorator:
 
 | Tool | What it does |
 |------|--------------|
-| `read_file` | Read file contents |
-| `list_directory` | List files (glob patterns) |
-| `file_info` | Get file metadata |
-| `git_diff` | See code changes |
-| `git_status` | Check repo status |
-| `git_log` | View commit history |
-| `git_changed_files` | List changed files |
-| `run_command` | Run safe shell commands |
+| `read_file` | Read file contents (path-jailed) |
+| `list_directory` | List files with glob patterns (path-jailed) |
+| `file_info` | Get file metadata (path-jailed) |
+| `git_diff` | Show git changes (staged or unstaged) |
+| `git_status` | Show current branch and changes |
+| `git_log` | View recent commit history |
+| `git_changed_files` | List modified/staged files |
+
+### Architecture
+
+Local Brain uses [Smolagents](https://github.com/huggingface/smolagents) as the agent framework:
+
+```
+local_brain/
+├── __init__.py      # Version
+├── cli.py           # Click CLI entry point
+├── models.py        # Ollama model discovery & selection
+├── security.py      # Path jailing utilities
+└── smolagent.py     # CodeAgent + custom tools
+```
+
+**What comes from Smolagents:**
+- `CodeAgent` — Agent that executes tasks via code generation
+- `LiteLLMModel` — Connects to Ollama via LiteLLM
+- `@tool` decorator — Registers our custom tools with the agent
+
+**What we implement:**
+- All 7 tools (read_file, git_diff, etc.) — our code, registered via `@tool`
+- Path jailing security — restricts file access to project root
+- Model discovery — detects installed Ollama models
 
 ### Security
 
-All operations are **restricted to the project root** (path jailing):
+**Sandboxed execution** via Smolagents LocalPythonExecutor:
 
-- ✅ Read files within project directory
-- ✅ Run safe, read-only shell commands
-- ❌ Access files outside project root
-- ❌ Read sensitive files (`.env`, keys)
-- ❌ Network access
+- ✅ Read files within project directory (path-jailed)
+- ✅ Execute git commands (read-only)
+- ❌ File I/O outside project root blocked
+- ❌ Dangerous imports blocked (subprocess, socket, etc.)
+- ❌ Network access blocked
+- ❌ Sensitive files blocked (`.env`, keys)
 
 ---
 
@@ -144,8 +166,7 @@ Want to add a plugin to this marketplace?
 
 ```
 your-plugin/
-├── .claude-plugin/
-│   └── plugin.json
+├── plugin.json
 └── skills/
     └── your-skill/
         └── SKILL.md
@@ -173,6 +194,14 @@ git clone https://github.com/IsmaelMartinez/local-brain.git
 cd local-brain
 uv sync
 uv run local-brain "Hello!"
+```
+
+**Note:** Requires Python 3.10-3.13 (grpcio build issue with 3.14).
+
+### Run Tests
+
+```bash
+uv run pytest tests/ -v
 ```
 
 ### Test Plugin Locally
