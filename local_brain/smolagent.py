@@ -71,7 +71,9 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
         for f in files:
             if any(part.startswith(".") for part in f.parts):
                 continue
-            if any(d in f.parts for d in ("node_modules", "target", "__pycache__", ".venv")):
+            if any(
+                d in f.parts for d in ("node_modules", "target", "__pycache__", ".venv")
+            ):
                 continue
             if is_sensitive_file(f):
                 continue
@@ -87,7 +89,8 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
             return f"No files matching '{pattern}' found in '{path}'"
 
         return "\n".join(
-            str(f.relative_to(root) if f.is_relative_to(root) else f) for f in safe_files
+            str(f.relative_to(root) if f.is_relative_to(root) else f)
+            for f in safe_files
         )
     except PermissionError as e:
         return f"Error: {e}"
@@ -158,7 +161,9 @@ def git_diff(staged: bool = False, file_path: str = "") -> str:
         args.extend(["--", file_path])
 
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=30, cwd=get_project_root())
+        result = subprocess.run(
+            args, capture_output=True, text=True, timeout=30, cwd=get_project_root()
+        )
         if result.returncode != 0:
             return f"Error: {result.stderr}"
         if not result.stdout.strip():
@@ -339,4 +344,3 @@ def run_smolagent(
         return str(result)
     except Exception as e:
         return f"Error: {e}"
-
