@@ -42,6 +42,11 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+# Smolagents experiment for Phase 2
+smolagents = [
+    "smolagents>=1.0.0",
+    "litellm>=1.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
