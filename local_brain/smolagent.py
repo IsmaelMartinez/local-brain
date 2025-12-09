@@ -4,6 +4,9 @@ Uses HuggingFace's smolagents library for code-as-tool execution
 with sandboxed Python execution via LocalPythonExecutor.
 """
 
+import subprocess
+from datetime import datetime
+
 from smolagents import CodeAgent, LiteLLMModel, tool
 
 from .security import safe_path, is_sensitive_file, get_project_root
@@ -102,8 +105,6 @@ def file_info(path: str) -> str:
     Returns:
         File information as formatted string
     """
-    from datetime import datetime
-
     try:
         resolved = safe_path(path)
 
@@ -150,8 +151,6 @@ def git_diff(staged: bool = False, file_path: str = "") -> str:
     Returns:
         Git diff output or error message
     """
-    import subprocess
-
     args = ["git", "diff"]
     if staged:
         args.append("--cached")
@@ -183,8 +182,6 @@ def git_status() -> str:
     Returns:
         Git status output
     """
-    import subprocess
-
     try:
         result = subprocess.run(
             ["git", "status", "--short", "--branch"],
@@ -215,8 +212,6 @@ def git_log(count: int = 10) -> str:
     Returns:
         Git log output in oneline format
     """
-    import subprocess
-
     try:
         result = subprocess.run(
             ["git", "log", f"-{min(count, 50)}", "--oneline"],
@@ -248,8 +243,6 @@ def git_changed_files(staged: bool = False, include_untracked: bool = False) -> 
     Returns:
         Newline-separated list of changed file paths
     """
-    import subprocess
-
     args = ["git", "diff", "--name-only", "--diff-filter=ACMR"]
     if staged:
         args.insert(2, "--cached")
