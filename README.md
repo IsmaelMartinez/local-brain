@@ -156,6 +156,13 @@ local_brain/
 - ❌ Network access blocked
 - ❌ Sensitive files blocked (`.env`, keys)
 
+**Why no web access?** Claude Code already has web access—delegate web research to Claude, local codebase work to Local Brain. This separation prevents data exfiltration and prompt injection from fetched content.
+
+### Future Ideas
+
+- **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
+- **Docker Sandbox** — Stronger isolation via container when Docker is available
+
 ---
 
 ## Adding New Plugins
