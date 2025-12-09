@@ -60,7 +60,6 @@ After multi-model research analysis, the decision is to **keep the current imple
 | Add model discovery (detect installed Ollama models) | High | ✅ Done |
 | Add smart model selection based on task | Medium | ✅ Done |
 | Add tests for allowlist/denylist behavior | Medium | ✅ Done |
-| Add retry logic for Ollama calls | Low | Pending |
 
 ### Phase 2: Next - Evaluate Smolagents + Sandboxing
 
@@ -176,6 +175,13 @@ from smolagents import DockerSandbox
 - Community needs Ollama↔MCP connectivity
 - High effort, high risk, high potential reward
 
+### Future Maybe
+
+| Task | Notes |
+|------|-------|
+| Retry logic for Ollama calls | Low priority, Ollama is local and usually reliable |
+| Streaming support | Nice-to-have for long responses |
+
 ---
 
 ## Model Discovery & Selection
@@ -261,7 +267,6 @@ Claude Code Skill
 - Regex-based command allowlist (fragile, Phase 2 will evaluate Smolagents sandbox)
 - Basic error handling
 - No streaming support (yet)
-- No retry logic for Ollama calls (Phase 1 pending)
 
 ---
 
