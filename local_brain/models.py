@@ -13,6 +13,7 @@ import ollama
 @dataclass
 class ModelInfo:
     """Information about an Ollama model."""
+
     name: str
     size_gb: float
     tool_support: Literal["excellent", "good", "limited", "none"]
@@ -23,26 +24,32 @@ class ModelInfo:
 # Recommended models for tool-calling tasks (ordered by preference)
 RECOMMENDED_MODELS: dict[str, ModelInfo] = {
     # Tier 1 - Excellent tool support
-    "qwen3:latest": ModelInfo("qwen3:latest", 4.4, "excellent", "General purpose, default", 1),
+    "qwen3:latest": ModelInfo(
+        "qwen3:latest", 4.4, "excellent", "General purpose, default", 1
+    ),
     "qwen3:8b": ModelInfo("qwen3:8b", 4.9, "excellent", "General purpose", 1),
     "qwen3:14b": ModelInfo("qwen3:14b", 9.0, "excellent", "Complex reasoning", 1),
-    
     # Tier 1 - Code-focused with excellent tool support
-    "qwen2.5-coder:7b": ModelInfo("qwen2.5-coder:7b", 4.7, "excellent", "Code-focused tasks", 1),
-    "qwen2.5-coder:14b": ModelInfo("qwen2.5-coder:14b", 9.0, "excellent", "Complex code analysis", 1),
-    "qwen2.5-coder:32b": ModelInfo("qwen2.5-coder:32b", 19.0, "excellent", "Advanced code tasks", 1),
-    
+    "qwen2.5-coder:7b": ModelInfo(
+        "qwen2.5-coder:7b", 4.7, "excellent", "Code-focused tasks", 1
+    ),
+    "qwen2.5-coder:14b": ModelInfo(
+        "qwen2.5-coder:14b", 9.0, "excellent", "Complex code analysis", 1
+    ),
+    "qwen2.5-coder:32b": ModelInfo(
+        "qwen2.5-coder:32b", 19.0, "excellent", "Advanced code tasks", 1
+    ),
     # Tier 2 - Good tool support
     "llama3.2:3b": ModelInfo("llama3.2:3b", 2.0, "good", "Fast, lightweight", 2),
     "llama3.2:1b": ModelInfo("llama3.2:1b", 1.3, "good", "Ultra-fast, minimal", 2),
     "llama3.1:8b": ModelInfo("llama3.1:8b", 4.7, "good", "Balanced performance", 2),
     "mistral:7b": ModelInfo("mistral:7b", 4.1, "good", "Balanced, reliable", 2),
     "mistral:latest": ModelInfo("mistral:latest", 4.1, "good", "Balanced, reliable", 2),
-    
     # Tier 2 - Larger models
-    "deepseek-coder-v2:16b": ModelInfo("deepseek-coder-v2:16b", 8.9, "good", "Complex code analysis", 2),
+    "deepseek-coder-v2:16b": ModelInfo(
+        "deepseek-coder-v2:16b", 8.9, "good", "Complex code analysis", 2
+    ),
     "codellama:13b": ModelInfo("codellama:13b", 7.4, "good", "Code generation", 2),
-    
     # Tier 3 - Limited but usable
     "gemma2:9b": ModelInfo("gemma2:9b", 5.4, "limited", "Google's model", 3),
     "phi3:mini": ModelInfo("phi3:mini", 2.2, "limited", "Microsoft's small model", 3),
@@ -54,7 +61,7 @@ DEFAULT_MODEL = "qwen3:latest"
 
 def list_installed_models() -> list:
     """Get all installed Ollama models.
-    
+
     Returns:
         List of Model objects with name, size, etc.
     """
@@ -72,13 +79,13 @@ def list_installed_models() -> list:
 
 def get_installed_model_names() -> set[str]:
     """Get names of all installed models (including tag variations).
-    
+
     Returns:
         Set of model names (e.g., {"qwen3:latest", "llama3.2:3b"}).
     """
     models = list_installed_models()
     names = set()
-    
+
     for model in models:
         # Handle both dict and Model object formats
         if hasattr(model, "model"):
@@ -87,34 +94,34 @@ def get_installed_model_names() -> set[str]:
             name = model.get("name", "") or model.get("model", "")
         else:
             continue
-            
+
         if name:
             names.add(name)
             # Also add without tag for matching
             if ":" in name:
                 base_name = name.split(":")[0]
                 names.add(f"{base_name}:latest")
-    
+
     return names
 
 
 def find_best_model(task_type: str | None = None) -> str | None:
     """Find the best installed model for a given task.
-    
+
     Args:
         task_type: Type of task ("code", "general", None for any).
-        
+
     Returns:
         Model name if found, None if no suitable model installed.
     """
     installed = get_installed_model_names()
-    
+
     if not installed:
         return None
-    
+
     # Build candidate list based on task type
     candidates: list[tuple[int, str]] = []  # (tier, name)
-    
+
     for model_name, info in RECOMMENDED_MODELS.items():
         # Check if this model (or a variant) is installed
         if model_name in installed:
@@ -127,16 +134,16 @@ def find_best_model(task_type: str | None = None) -> str | None:
                     candidates.append((info.tier, model_name))
             else:
                 candidates.append((info.tier, model_name))
-    
+
     if not candidates:
         # Fallback: return any installed model from recommendations
         for model_name in RECOMMENDED_MODELS:
             if model_name in installed:
                 return model_name
-        
+
         # Ultimate fallback: return first installed model
         return next(iter(installed), None)
-    
+
     # Sort by tier (lower is better) and return best
     candidates.sort(key=lambda x: x[0])
     return candidates[0][1]
@@ -144,10 +151,10 @@ def find_best_model(task_type: str | None = None) -> str | None:
 
 def check_model_available(model: str) -> bool:
     """Check if a specific model is installed.
-    
+
     Args:
         model: Model name to check.
-        
+
     Returns:
         True if installed, False otherwise.
     """
@@ -157,45 +164,48 @@ def check_model_available(model: str) -> bool:
 
 def get_model_recommendation() -> tuple[str, str]:
     """Get a model recommendation with explanation.
-    
+
     Returns:
         Tuple of (recommended_model, explanation).
     """
     best = find_best_model()
-    
+
     if best:
         info = RECOMMENDED_MODELS.get(best)
         if info:
             return best, f"Using {best} ({info.best_for}, {info.size_gb}GB)"
         return best, f"Using {best}"
-    
-    return DEFAULT_MODEL, f"No recommended models installed. Suggest: ollama pull {DEFAULT_MODEL}"
+
+    return (
+        DEFAULT_MODEL,
+        f"No recommended models installed. Suggest: ollama pull {DEFAULT_MODEL}",
+    )
 
 
 def get_available_models_summary() -> str:
     """Get a summary of available models for display.
-    
+
     Returns:
         Formatted string showing installed models and recommendations.
     """
     installed = get_installed_model_names()
-    
+
     if not installed:
         return f"No Ollama models found. Run: ollama pull {DEFAULT_MODEL}"
-    
+
     lines = ["Installed models:"]
-    
+
     # Show recommended models that are installed
     recommended_installed = []
     other_installed = []
-    
+
     for name in installed:
         if name in RECOMMENDED_MODELS:
             info = RECOMMENDED_MODELS[name]
             recommended_installed.append(f"  ✅ {name} - {info.best_for}")
         else:
             other_installed.append(f"  • {name}")
-    
+
     if recommended_installed:
         lines.extend(recommended_installed)
     if other_installed:
@@ -203,15 +213,16 @@ def get_available_models_summary() -> str:
         lines.extend(other_installed[:5])  # Limit to 5
         if len(other_installed) > 5:
             lines.append(f"  ... and {len(other_installed) - 5} more")
-    
+
     # Suggest missing good models
     missing_tier1 = [
-        name for name, info in RECOMMENDED_MODELS.items()
+        name
+        for name, info in RECOMMENDED_MODELS.items()
         if info.tier == 1 and name not in installed
     ]
     if missing_tier1 and len(recommended_installed) < 2:
         lines.append(f"\nSuggested: ollama pull {missing_tier1[0]}")
-    
+
     return "\n".join(lines)
 
 
@@ -220,11 +231,11 @@ def select_model_for_task(
     task_hint: str | None = None,
 ) -> tuple[str, bool]:
     """Select the best model for a task, with fallback logic.
-    
+
     Args:
         requested_model: User-requested model (if any).
         task_hint: Hint about the task type.
-        
+
     Returns:
         Tuple of (model_name, was_fallback) where was_fallback indicates
         if we fell back from the requested model.
@@ -233,20 +244,19 @@ def select_model_for_task(
     if requested_model:
         if check_model_available(requested_model):
             return requested_model, False
-        
+
         # Try to find an alternative
         best = find_best_model(task_hint)
         if best:
             return best, True
-        
+
         # No fallback available - return requested (will fail at runtime)
         return requested_model, False
-    
+
     # Auto-select best model
     best = find_best_model(task_hint)
     if best:
         return best, False
-    
+
     # Default fallback
     return DEFAULT_MODEL, False
-

@@ -32,8 +32,15 @@ Use tools when they help answer the question. Be concise."""
 
 @click.command()
 @click.argument("prompt", required=False, default="")
-@click.option("--model", "-m", default=None, help="Model to use (auto-selects if not specified)")
-@click.option("--root", "-r", default=None, help="Project root directory (default: current directory)")
+@click.option(
+    "--model", "-m", default=None, help="Model to use (auto-selects if not specified)"
+)
+@click.option(
+    "--root",
+    "-r",
+    default=None,
+    help="Project root directory (default: current directory)",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Show tool calls")
 @click.option("--list-models", is_flag=True, help="List available models and exit")
 @click.option("--version", "-V", is_flag=True, help="Show version")
@@ -71,26 +78,25 @@ def main(
 
     # Initialize security - set project root for path jailing
     project_root = set_project_root(root)
-    
+
     if verbose:
         click.echo(f"📁 Project root: {project_root}")
 
     # Smart model selection
     selected_model, was_fallback = select_model_for_task(model)
-    
+
     if was_fallback:
         click.echo(
-            f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
-            err=True
+            f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.", err=True
         )
-    
+
     # Check if selected model is available
     if not check_model_available(selected_model):
         click.echo(
             f"❌ Model '{selected_model}' not installed.\n\n"
             f"Install with: ollama pull {selected_model}\n\n"
             f"Or try: ollama pull {DEFAULT_MODEL}",
-            err=True
+            err=True,
         )
         raise SystemExit(1)
 

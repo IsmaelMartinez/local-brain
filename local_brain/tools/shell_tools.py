@@ -118,10 +118,10 @@ BLOCKED_COMMANDS = {
 
 def _validate_path_arguments(parts: list[str]) -> str | None:
     """Validate that path arguments don't escape the project root.
-    
+
     Args:
         parts: Command parts (command + arguments).
-        
+
     Returns:
         Error message if validation fails, None if valid.
     """

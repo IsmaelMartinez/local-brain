@@ -17,17 +17,17 @@ class TestFileTools:
         """Test reading an existing file within project root."""
         # Set project root to tmp_path for this test
         set_project_root(tmp_path)
-        
+
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, world!")
-        
+
         result = read_file(str(test_file))
         assert result == "Hello, world!"
 
     def test_read_file_not_found(self, tmp_path):
         """Test reading a non-existent file within project root."""
         set_project_root(tmp_path)
-        
+
         result = read_file("nonexistent_file.txt")
         assert "Error" in result
         assert "not found" in result
@@ -35,7 +35,7 @@ class TestFileTools:
     def test_read_file_outside_root(self, tmp_path):
         """Test that reading files outside project root is blocked."""
         set_project_root(tmp_path)
-        
+
         result = read_file("/etc/passwd")
         assert "Error" in result
         assert "outside project root" in result
@@ -43,7 +43,7 @@ class TestFileTools:
     def test_list_directory_success(self, tmp_path):
         """Test listing a directory within project root."""
         set_project_root(tmp_path)
-        
+
         # Create some files
         (tmp_path / "test1.py").write_text("# test")
         (tmp_path / "test2.py").write_text("# test")
@@ -55,14 +55,14 @@ class TestFileTools:
     def test_list_directory_not_found(self, tmp_path):
         """Test listing a non-existent directory within project root."""
         set_project_root(tmp_path)
-        
+
         result = list_directory("nonexistent_subdir")
         assert "Error" in result
 
     def test_list_directory_outside_root(self, tmp_path):
         """Test that listing directories outside project root is blocked."""
         set_project_root(tmp_path)
-        
+
         result = list_directory("/etc")
         assert "Error" in result
         assert "outside project root" in result
@@ -70,10 +70,10 @@ class TestFileTools:
     def test_file_info_success(self, tmp_path):
         """Test getting file info within project root."""
         set_project_root(tmp_path)
-        
+
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
-        
+
         result = file_info(str(test_file))
         assert "Path:" in result
         assert "Size:" in result
@@ -82,14 +82,14 @@ class TestFileTools:
     def test_file_info_not_found(self, tmp_path):
         """Test file info for non-existent file within project root."""
         set_project_root(tmp_path)
-        
+
         result = file_info("nonexistent.txt")
         assert "Error" in result
 
     def test_file_info_outside_root(self, tmp_path):
         """Test that file info outside project root is blocked."""
         set_project_root(tmp_path)
-        
+
         result = file_info("/etc/passwd")
         assert "Error" in result
         assert "outside project root" in result
@@ -161,5 +161,3 @@ class TestShellTools:
         result = run_command("bash -c 'echo hello'")
         assert "Error" in result
         assert "blocked" in result.lower()
-
-

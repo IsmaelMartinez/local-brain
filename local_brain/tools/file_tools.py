@@ -20,11 +20,11 @@ def read_file(path: str) -> str:
     try:
         # Jail check - ensure path is within project root
         resolved = safe_path(path)
-        
+
         # Block sensitive files
         if is_sensitive_file(resolved):
             return f"Error: Access to sensitive file '{path}' is blocked"
-        
+
         content = resolved.read_text()
         # Truncate very large files to avoid overwhelming context
         if len(content) > 50000:
@@ -51,7 +51,7 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
     try:
         # Jail check - ensure path is within project root
         resolved = safe_path(path)
-        
+
         if not resolved.exists():
             return f"Error: Directory '{path}' does not exist"
         if not resolved.is_dir():
@@ -71,7 +71,9 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
             if any(part.startswith(".") for part in f.parts):
                 continue
             # Skip common non-code directories
-            if any(d in f.parts for d in ("node_modules", "target", "__pycache__", ".venv")):
+            if any(
+                d in f.parts for d in ("node_modules", "target", "__pycache__", ".venv")
+            ):
                 continue
             # Skip sensitive files
             if is_sensitive_file(f):
@@ -90,7 +92,10 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
             return f"No files matching '{pattern}' found in '{path}'"
 
         # Return paths relative to project root for cleaner output
-        return "\n".join(str(f.relative_to(root) if f.is_relative_to(root) else f) for f in safe_files)
+        return "\n".join(
+            str(f.relative_to(root) if f.is_relative_to(root) else f)
+            for f in safe_files
+        )
     except PermissionError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -109,11 +114,11 @@ def file_info(path: str) -> str:
     try:
         # Jail check - ensure path is within project root
         resolved = safe_path(path)
-        
+
         # Block sensitive files
         if is_sensitive_file(resolved):
             return f"Error: Access to sensitive file '{path}' is blocked"
-        
+
         if not resolved.exists():
             return f"Error: File '{path}' does not exist"
 

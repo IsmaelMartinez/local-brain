@@ -90,5 +90,3 @@ class TestCLI:
 
         assert result.exit_code == 1
         assert "not installed" in result.output
-
-
