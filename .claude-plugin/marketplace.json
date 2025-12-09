@@ -9,7 +9,7 @@
       "name": "local-brain",
       "source": "./local-brain",
       "description": "Chat with local Ollama models that can explore your codebase using tools",
-      "version": "0.3.3",
+      "version": "0.3.6",
       "homepage": "https://github.com/IsmaelMartinez/local-brain",
       "repository": "https://github.com/IsmaelMartinez/local-brain",
       "license": "MIT",
