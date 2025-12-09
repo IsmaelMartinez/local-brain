@@ -159,7 +159,7 @@ def git_diff(staged: bool = False, file_path: str = "") -> str:
         args.extend(["--", file_path])
 
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(args, capture_output=True, text=True, timeout=30, cwd=get_project_root())
         if result.returncode != 0:
             return f"Error: {result.stderr}"
         if not result.stdout.strip():
