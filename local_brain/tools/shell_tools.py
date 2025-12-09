@@ -1,7 +1,12 @@
-"""Shell tools for running commands (with strict safety restrictions)."""
+"""Shell tools for running commands (with strict safety restrictions).
+
+All commands are executed within the project root directory (path jailing).
+"""
 
 import shlex
 import subprocess
+
+from ..security import get_project_root, is_path_safe
 
 # Commands that are explicitly allowed (default-deny posture)
 ALLOWED_COMMANDS = {
@@ -111,10 +116,35 @@ BLOCKED_COMMANDS = {
 }
 
 
+def _validate_path_arguments(parts: list[str]) -> str | None:
+    """Validate that path arguments don't escape the project root.
+
+    Args:
+        parts: Command parts (command + arguments).
+
+    Returns:
+        Error message if validation fails, None if valid.
+    """
+    # Skip the command itself, check arguments that look like paths
+    for arg in parts[1:]:
+        # Skip flags
+        if arg.startswith("-"):
+            continue
+        # Skip non-path-like arguments
+        if not any(c in arg for c in ["/", "\\", ".."]):
+            continue
+        # Check if it looks like a path and validate it
+        if "/" in arg or "\\" in arg or arg.startswith(".."):
+            if not is_path_safe(arg):
+                return f"Error: Path '{arg}' is outside project root"
+    return None
+
+
 def run_command(command: str, timeout: int = 30) -> str:
     """Run a safe, read-only shell command and return output.
 
     Only allows explicitly approved commands. Blocks all others.
+    All commands are executed within the project root directory.
 
     Args:
         command: The shell command to run
@@ -148,8 +178,16 @@ def run_command(command: str, timeout: int = 30) -> str:
         if pattern in command:
             return f"Error: Shell metacharacter '{pattern}' not allowed"
 
+    # Validate path arguments don't escape project root
+    path_error = _validate_path_arguments(parts)
+    if path_error:
+        return path_error
+
     # Limit timeout
     timeout = min(max(timeout, 1), 60)
+
+    # Get project root for cwd
+    project_root = get_project_root()
 
     try:
         result = subprocess.run(
@@ -157,7 +195,7 @@ def run_command(command: str, timeout: int = 30) -> str:
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=None,
+            cwd=str(project_root),  # Execute within project root
         )
 
         output = result.stdout
