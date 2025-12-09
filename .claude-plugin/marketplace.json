@@ -1,13 +1,27 @@
 {
   "name": "local-brain-marketplace",
   "owner": {
-    "name": "Ismael Martinez Ramos"
+    "name": "Ismael Martinez Ramos",
+    "email": "ismaelmartinez@gmail.com"
   },
   "plugins": [
     {
       "name": "local-brain",
       "source": "./local-brain",
-      "description": "Delegate codebase exploration to local Ollama models"
+      "description": "Chat with local Ollama models that can explore your codebase using tools",
+      "version": "0.3.6",
+      "homepage": "https://github.com/IsmaelMartinez/local-brain",
+      "repository": "https://github.com/IsmaelMartinez/local-brain",
+      "license": "MIT",
+      "keywords": [
+        "code-review",
+        "ollama",
+        "llm",
+        "python",
+        "tool-calling",
+        "cli"
+      ],
+      "category": "productivity"
     }
   ]
 }
