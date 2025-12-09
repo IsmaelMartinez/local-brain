@@ -3,6 +3,15 @@
 from unittest.mock import MagicMock, patch
 
 from local_brain.security import set_project_root
+from local_brain.smolagent import (
+    create_agent,
+    file_info,
+    git_log,
+    git_status,
+    list_directory,
+    read_file,
+    run_smolagent,
+)
 
 
 class TestSmolagentTools:
@@ -10,8 +19,6 @@ class TestSmolagentTools:
 
     def test_read_file_success(self, tmp_path):
         """Test reading an existing file within project root."""
-        from local_brain.smolagent import read_file
-
         set_project_root(tmp_path)
 
         test_file = tmp_path / "test.txt"
@@ -22,8 +29,6 @@ class TestSmolagentTools:
 
     def test_read_file_not_found(self, tmp_path):
         """Test reading a non-existent file within project root."""
-        from local_brain.smolagent import read_file
-
         set_project_root(tmp_path)
 
         result = read_file("nonexistent_file.txt")
@@ -32,8 +37,6 @@ class TestSmolagentTools:
 
     def test_read_file_outside_root(self, tmp_path):
         """Test that reading files outside project root is blocked."""
-        from local_brain.smolagent import read_file
-
         set_project_root(tmp_path)
 
         result = read_file("/etc/passwd")
@@ -42,8 +45,6 @@ class TestSmolagentTools:
 
     def test_list_directory_success(self, tmp_path):
         """Test listing a directory within project root."""
-        from local_brain.smolagent import list_directory
-
         set_project_root(tmp_path)
 
         # Create some files
@@ -56,8 +57,6 @@ class TestSmolagentTools:
 
     def test_list_directory_not_found(self, tmp_path):
         """Test listing a non-existent directory within project root."""
-        from local_brain.smolagent import list_directory
-
         set_project_root(tmp_path)
 
         result = list_directory("nonexistent_subdir")
@@ -65,8 +64,6 @@ class TestSmolagentTools:
 
     def test_list_directory_outside_root(self, tmp_path):
         """Test that listing directories outside project root is blocked."""
-        from local_brain.smolagent import list_directory
-
         set_project_root(tmp_path)
 
         result = list_directory("/etc")
@@ -75,8 +72,6 @@ class TestSmolagentTools:
 
     def test_file_info_success(self, tmp_path):
         """Test getting file info within project root."""
-        from local_brain.smolagent import file_info
-
         set_project_root(tmp_path)
 
         test_file = tmp_path / "test.txt"
@@ -89,8 +84,6 @@ class TestSmolagentTools:
 
     def test_file_info_not_found(self, tmp_path):
         """Test file info for non-existent file within project root."""
-        from local_brain.smolagent import file_info
-
         set_project_root(tmp_path)
 
         result = file_info("nonexistent.txt")
@@ -98,8 +91,6 @@ class TestSmolagentTools:
 
     def test_file_info_outside_root(self, tmp_path):
         """Test that file info outside project root is blocked."""
-        from local_brain.smolagent import file_info
-
         set_project_root(tmp_path)
 
         result = file_info("/etc/passwd")
@@ -112,16 +103,12 @@ class TestSmolagentGitTools:
 
     def test_git_status(self):
         """Test git status returns something."""
-        from local_brain.smolagent import git_status
-
         result = git_status()
         assert isinstance(result, str)
         assert len(result) > 0
 
     def test_git_log(self):
         """Test git log returns something."""
-        from local_brain.smolagent import git_log
-
         result = git_log(count=5)
         assert isinstance(result, str)
         assert len(result) > 0
@@ -134,8 +121,6 @@ class TestSmolagentAgent:
     @patch("local_brain.smolagent.CodeAgent")
     def test_create_agent(self, mock_code_agent, mock_model):
         """Test agent creation."""
-        from local_brain.smolagent import create_agent
-
         mock_model_instance = MagicMock()
         mock_model.return_value = mock_model_instance
 
@@ -151,8 +136,6 @@ class TestSmolagentAgent:
     @patch("local_brain.smolagent.create_agent")
     def test_run_smolagent(self, mock_create_agent):
         """Test running the smolagent."""
-        from local_brain.smolagent import run_smolagent
-
         mock_agent = MagicMock()
         mock_agent.run.return_value = "Test response"
         mock_create_agent.return_value = mock_agent
@@ -165,12 +148,9 @@ class TestSmolagentAgent:
     @patch("local_brain.smolagent.create_agent")
     def test_run_smolagent_handles_error(self, mock_create_agent):
         """Test smolagent handles errors gracefully."""
-        from local_brain.smolagent import run_smolagent
-
         mock_create_agent.side_effect = Exception("Connection refused")
 
         result = run_smolagent("Hello")
 
         assert "Error" in result
         assert "Connection refused" in result
-
