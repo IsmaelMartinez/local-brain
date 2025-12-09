@@ -54,3 +54,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "local_brain/__init__.py"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.8",
+]

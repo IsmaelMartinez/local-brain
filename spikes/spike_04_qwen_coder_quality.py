@@ -23,7 +23,7 @@ TEST_DIR = SPIKE_DIR / "test_project"
 def setup_test_project() -> None:
     """Create a mock project structure for testing."""
     TEST_DIR.mkdir(exist_ok=True)
-    
+
     # Create some test files
     (TEST_DIR / "main.py").write_text('''#!/usr/bin/env python3
 """Main entry point."""
@@ -39,7 +39,7 @@ def calculate_sum(numbers: list[int]) -> int:
 if __name__ == "__main__":
     print(greet("World"))
 ''')
-    
+
     (TEST_DIR / "utils.py").write_text('''"""Utility functions."""
 
 import os
@@ -53,13 +53,14 @@ def list_python_files(directory: Path) -> list[str]:
     """List all Python files in directory."""
     return [f.name for f in directory.glob("*.py")]
 ''')
-    
+
     (TEST_DIR / "config.json").write_text('{"debug": true, "version": "1.0.0"}')
 
 
 def cleanup_test_project() -> None:
     """Remove test project."""
     import shutil
+
     if TEST_DIR.exists():
         shutil.rmtree(TEST_DIR)
 
@@ -70,23 +71,25 @@ def test_model_availability() -> dict[str, Any]:
 
     try:
         import ollama
-        
+
         models = ollama.list()
         model_names = [m.model for m in models.models]
-        
+
         # Check for Qwen models
         qwen_models = [m for m in model_names if "qwen" in m.lower()]
         coder_models = [m for m in model_names if "coder" in m.lower()]
-        
+
         results["details"]["installed_models"] = f"Found {len(model_names)} models"
-        
+
         if qwen_models:
             results["details"]["qwen_models"] = f"✅ Qwen: {', '.join(qwen_models[:3])}"
         else:
             results["details"]["qwen_models"] = "⚠️ No Qwen models found"
-            
+
         if coder_models:
-            results["details"]["coder_models"] = f"✅ Coder: {', '.join(coder_models[:3])}"
+            results["details"]["coder_models"] = (
+                f"✅ Coder: {', '.join(coder_models[:3])}"
+            )
         else:
             results["details"]["coder_models"] = "⚠️ No Coder models found"
 
@@ -134,19 +137,21 @@ def test_simple_code_task(model_id: str) -> dict[str, Any]:
             "for both print 'FizzBuzz', otherwise print the number. "
             "Return the list of outputs."
         )
-        
+
         result_str = str(result).lower()
-        
+
         # Check for expected patterns
         has_fizz = "fizz" in result_str
         has_buzz = "buzz" in result_str
         has_numbers = any(str(i) in result_str for i in [1, 2, 4, 7, 8])
-        
+
         if has_fizz and has_buzz and has_numbers:
             results["details"]["fizzbuzz"] = "✅ Correct patterns found"
         else:
-            results["details"]["fizzbuzz"] = f"⚠️ Partial: fizz={has_fizz}, buzz={has_buzz}, nums={has_numbers}"
-        
+            results["details"]["fizzbuzz"] = (
+                f"⚠️ Partial: fizz={has_fizz}, buzz={has_buzz}, nums={has_numbers}"
+            )
+
         results["details"]["output_preview"] = f"Output: {result_str[:100]}..."
 
     except Exception as e:
@@ -167,10 +172,10 @@ def test_file_analysis_task(model_id: str) -> dict[str, Any]:
         @tool
         def read_file(path: str) -> str:
             """Read the contents of a file.
-            
+
             Args:
                 path: Path to the file to read.
-                
+
             Returns:
                 The file contents as a string.
             """
@@ -182,10 +187,10 @@ def test_file_analysis_task(model_id: str) -> dict[str, Any]:
         @tool
         def list_files(directory: str = ".") -> str:
             """List files in a directory.
-            
+
             Args:
                 directory: Directory to list (default: current).
-                
+
             Returns:
                 Newline-separated list of files.
             """
@@ -209,13 +214,13 @@ def test_file_analysis_task(model_id: str) -> dict[str, Any]:
             "List the files in the project and read main.py. "
             "Tell me what functions are defined in main.py."
         )
-        
+
         result_str = str(result).lower()
-        
+
         # Should mention the functions
         has_greet = "greet" in result_str
         has_calculate = "calculate" in result_str or "sum" in result_str
-        
+
         if has_greet and has_calculate:
             results["details"]["analysis"] = "✅ Found both functions"
         elif has_greet or has_calculate:
@@ -223,7 +228,7 @@ def test_file_analysis_task(model_id: str) -> dict[str, Any]:
         else:
             results["details"]["analysis"] = "❌ Didn't find functions"
             results["passed"] = False
-            
+
         results["details"]["output"] = f"Output: {str(result)[:150]}..."
 
     except Exception as e:
@@ -243,10 +248,10 @@ def test_error_handling(model_id: str) -> dict[str, Any]:
         @tool
         def read_file(path: str) -> str:
             """Read a file's contents.
-            
+
             Args:
                 path: Path to the file.
-                
+
             Returns:
                 File contents or error message.
             """
@@ -270,14 +275,20 @@ def test_error_handling(model_id: str) -> dict[str, Any]:
             "Try to read the file 'nonexistent_file_12345.txt'. "
             "If it doesn't exist, say 'File not found'."
         )
-        
+
         result_str = str(result).lower()
-        
-        if "not found" in result_str or "error" in result_str or "doesn't exist" in result_str:
+
+        if (
+            "not found" in result_str
+            or "error" in result_str
+            or "doesn't exist" in result_str
+        ):
             results["details"]["error_handling"] = "✅ Handled missing file gracefully"
         else:
-            results["details"]["error_handling"] = f"⚠️ Unclear error handling: {result_str[:50]}"
-            
+            results["details"]["error_handling"] = (
+                f"⚠️ Unclear error handling: {result_str[:50]}"
+            )
+
     except Exception as e:
         results["passed"] = False
         results["details"]["error_handling"] = f"❌ Failed: {e}"
@@ -300,22 +311,22 @@ def test_code_quality_review(model_id: str) -> dict[str, Any]:
         agent = CodeAgent(tools=[], model=model)
 
         # Ask to improve bad code
-        bad_code = '''
+        bad_code = """
 def f(x):
     y=[]
     for i in x:
         if i%2==0:
             y.append(i*2)
     return y
-'''
-        
+"""
+
         result = agent.run(
             f"Review this Python code and suggest improvements for readability:\n```python\n{bad_code}\n```\n"
             "Provide an improved version with better variable names and formatting."
         )
-        
+
         result_str = str(result)
-        
+
         # Check for improvements
         improvements = 0
         if "numbers" in result_str.lower() or "items" in result_str.lower():
@@ -324,14 +335,18 @@ def f(x):
             improvements += 1  # Descriptive naming
         if "list comprehension" in result_str.lower():
             improvements += 1  # Suggested comprehension
-            
+
         if improvements >= 2:
-            results["details"]["code_review"] = f"✅ Good suggestions ({improvements} improvements)"
+            results["details"]["code_review"] = (
+                f"✅ Good suggestions ({improvements} improvements)"
+            )
         elif improvements >= 1:
-            results["details"]["code_review"] = f"⚠️ Some suggestions ({improvements} improvements)"
+            results["details"]["code_review"] = (
+                f"⚠️ Some suggestions ({improvements} improvements)"
+            )
         else:
             results["details"]["code_review"] = "❌ No clear improvements suggested"
-            
+
         results["details"]["preview"] = f"Output: {result_str[:200]}..."
 
     except Exception as e:
@@ -402,4 +417,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

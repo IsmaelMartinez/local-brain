@@ -6,7 +6,7 @@ This spike validates:
 2. Generated code executes correctly
 3. Results are returned properly
 
-The key insight: Instead of defining fixed tools like read_file(), 
+The key insight: Instead of defining fixed tools like read_file(),
 the model writes: `open('file.txt').read()` directly.
 
 Run: uv run python spikes/spike_02_code_as_tool.py
@@ -53,7 +53,7 @@ def test_code_generation_simple() -> dict[str, Any]:
 
         # Simple math task - should generate code like `result = 15 * 23`
         result = agent.run("Calculate 15 multiplied by 23. Return just the number.")
-        
+
         # Check if result is reasonable (345)
         result_str = str(result)
         if "345" in result_str:
@@ -90,7 +90,7 @@ def test_code_generation_list_operation() -> dict[str, Any]:
         result = agent.run(
             "Given the list [1, 2, 3, 4, 5], calculate the sum. Return just the number."
         )
-        
+
         result_str = str(result)
         if "15" in result_str:
             results["details"]["list_sum"] = f"✅ Correct: {result_str[:50]}"
@@ -124,9 +124,9 @@ def test_code_execution_visibility() -> dict[str, Any]:
 
         # Run and capture logs
         result = agent.run("What is the square root of 144? Return just the number.")
-        
+
         # Check if we can access agent's logs/history
-        if hasattr(agent, 'logs') or hasattr(agent, 'memory'):
+        if hasattr(agent, "logs") or hasattr(agent, "memory"):
             results["details"]["visibility"] = "✅ Can inspect agent execution"
         else:
             results["details"]["visibility"] = "⚠️ Limited visibility into execution"
@@ -151,7 +151,7 @@ def test_tool_integration() -> dict[str, Any]:
         @tool
         def get_current_directory() -> str:
             """Get the current working directory.
-            
+
             Returns:
                 The absolute path of the current directory.
             """
@@ -168,12 +168,16 @@ def test_tool_integration() -> dict[str, Any]:
         )
 
         # Ask agent to use the tool
-        result = agent.run("What is the current working directory? Use the available tool.")
-        
+        result = agent.run(
+            "What is the current working directory? Use the available tool."
+        )
+
         # Should contain a path
         result_str = str(result)
         if "/" in result_str or "\\" in result_str:
-            results["details"]["tool_use"] = f"✅ Tool used, got path: {result_str[:50]}..."
+            results["details"]["tool_use"] = (
+                f"✅ Tool used, got path: {result_str[:50]}..."
+            )
         else:
             results["details"]["tool_use"] = f"⚠️ Unclear result: {result_str[:50]}"
 
@@ -228,4 +232,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

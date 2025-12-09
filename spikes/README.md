@@ -5,8 +5,8 @@ This directory contains spike scripts to evaluate Smolagents as a replacement fo
 ## Prerequisites
 
 ```bash
-# Install spike dependencies
-uv add smolagents litellm --dev
+# Install spike dependencies (uses smolagents optional group from pyproject.toml)
+uv pip install -e ".[smolagents]"
 
 # Ensure Ollama is running with a code-capable model
 ollama pull qwen2.5-coder:7b

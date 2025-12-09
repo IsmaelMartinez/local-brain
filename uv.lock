@@ -1043,6 +1043,11 @@ smolagents = [
     { name = "smolagents" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0.0" },
@@ -1055,6 +1060,9 @@ requires-dist = [
     { name = "smolagents", marker = "extra == 'smolagents'", specifier = ">=1.0.0" },
 ]
 provides-extras = ["dev", "smolagents"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.14.8" }]
 
 [[package]]
 name = "markdown-it-py"

@@ -74,10 +74,14 @@ def test_smolagents_model() -> dict[str, Any]:
         results["details"]["model_creation"] = "✅ LiteLLMModel created"
 
         # Test basic call - smolagents model returns a ChatMessage object
-        response = model([{"role": "user", "content": "What is 2+2? Reply with just the number."}])
+        response = model(
+            [{"role": "user", "content": "What is 2+2? Reply with just the number."}]
+        )
         # Access content from the ChatMessage
-        content = getattr(response, 'content', str(response))
-        results["details"]["model_call"] = f"✅ Model responded: {str(content)[:100]}..."
+        content = getattr(response, "content", str(response))
+        results["details"]["model_call"] = (
+            f"✅ Model responded: {str(content)[:100]}..."
+        )
 
     except Exception as e:
         results["passed"] = False
@@ -156,4 +160,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
