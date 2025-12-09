@@ -11,7 +11,6 @@ Run: uv run python spikes/spike_04_qwen_coder_quality.py
 """
 
 import sys
-import os
 from pathlib import Path
 from typing import Any
 
@@ -144,7 +143,7 @@ def test_simple_code_task(model_id: str) -> dict[str, Any]:
         has_numbers = any(str(i) in result_str for i in [1, 2, 4, 7, 8])
         
         if has_fizz and has_buzz and has_numbers:
-            results["details"]["fizzbuzz"] = f"✅ Correct patterns found"
+            results["details"]["fizzbuzz"] = "✅ Correct patterns found"
         else:
             results["details"]["fizzbuzz"] = f"⚠️ Partial: fizz={has_fizz}, buzz={has_buzz}, nums={has_numbers}"
         
@@ -350,7 +349,7 @@ def main() -> int:
 
     # First check model availability
     availability = test_model_availability()
-    print(f"\n🧪 Test: Model Availability")
+    print("\n🧪 Test: Model Availability")
     print("-" * 40)
     for key, value in availability["details"].items():
         print(f"   {key}: {value}")
@@ -385,9 +384,9 @@ def main() -> int:
 
         if not result["passed"]:
             all_passed = False
-            print(f"   ⚠️  TEST FAILED")
+            print("   ⚠️  TEST FAILED")
         else:
-            print(f"   ✅ TEST PASSED")
+            print("   ✅ TEST PASSED")
 
     # Cleanup
     cleanup_test_project()

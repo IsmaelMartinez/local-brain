@@ -211,9 +211,9 @@ def main() -> int:
 
         if not result["passed"]:
             all_passed = False
-            print(f"   ⚠️  TEST FAILED")
+            print("   ⚠️  TEST FAILED")
         else:
-            print(f"   ✅ TEST PASSED")
+            print("   ✅ TEST PASSED")
 
     cleanup_test_files()
 
