@@ -4,9 +4,7 @@ Provides path jailing and other security features to prevent
 unauthorized access outside the project root.
 """
 
-import os
 from pathlib import Path
-from functools import lru_cache
 
 
 # Global project root - set by CLI at startup

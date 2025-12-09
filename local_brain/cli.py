@@ -10,7 +10,7 @@ from .models import (
     check_model_available,
     DEFAULT_MODEL,
 )
-from .security import set_project_root, get_project_root
+from .security import set_project_root
 from .tools import ALL_TOOLS
 
 

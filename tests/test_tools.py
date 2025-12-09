@@ -1,11 +1,5 @@
 """Tests for the tools module."""
 
-import os
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from local_brain.security import set_project_root
 from local_brain.tools.file_tools import read_file, list_directory, file_info
 from local_brain.tools.git_tools import git_status, git_log

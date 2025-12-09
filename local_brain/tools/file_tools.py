@@ -4,7 +4,6 @@ All file operations are restricted to the project root directory (path jailing).
 """
 
 from datetime import datetime
-from pathlib import Path
 
 from ..security import safe_path, is_sensitive_file, get_project_root
 

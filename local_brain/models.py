@@ -62,7 +62,7 @@ def list_installed_models() -> list:
         response = ollama.list()
         # Handle both dict (old API) and ListResponse (new API) formats
         if hasattr(response, "models"):
-            return response.models
+            return list(response.models)
         elif isinstance(response, dict):
             return response.get("models", [])
         return []
