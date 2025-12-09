@@ -3,7 +3,7 @@
 import click
 
 from . import __version__
-from .agent import run_agent
+from .smolagent import run_smolagent
 from .models import (
     select_model_for_task,
     get_available_models_summary,
@@ -11,23 +11,6 @@ from .models import (
     DEFAULT_MODEL,
 )
 from .security import set_project_root
-from .tools import ALL_TOOLS
-
-
-SYSTEM_PROMPT = """You are a helpful assistant with access to tools for exploring codebases.
-
-Available tools:
-- read_file: Read file contents
-- list_directory: List files (supports glob patterns)
-- file_info: Get file metadata (size, modified time)
-- git_diff: See code changes
-- git_status: Check repo status
-- git_changed_files: List changed files
-- git_log: View commit history
-- run_command: Run safe read-only shell commands
-
-All file operations are restricted to the current project directory.
-Use tools when they help answer the question. Be concise."""
 
 
 @click.command()
@@ -41,7 +24,7 @@ Use tools when they help answer the question. Be concise."""
     default=None,
     help="Project root directory (default: current directory)",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Show tool calls")
+@click.option("--verbose", "-v", is_flag=True, help="Show execution details")
 @click.option("--list-models", is_flag=True, help="List available models and exit")
 @click.option("--version", "-V", is_flag=True, help="Show version")
 def main(
@@ -53,6 +36,8 @@ def main(
     version: bool,
 ):
     """Chat with local Ollama models that can explore your codebase.
+
+    Uses Smolagents for secure, sandboxed code execution.
 
     Examples:
 
@@ -103,11 +88,9 @@ def main(
     if verbose:
         click.echo(f"🤖 Model: {selected_model}")
 
-    result = run_agent(
+    result = run_smolagent(
         prompt=prompt,
-        system=SYSTEM_PROMPT,
         model=selected_model,
-        tools=ALL_TOOLS,
         verbose=verbose,
     )
 

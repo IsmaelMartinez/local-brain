@@ -1,21 +1,24 @@
-"""Tests for the tools module."""
+"""Tests for the smolagent module."""
+
+from unittest.mock import MagicMock, patch
 
 from local_brain.security import set_project_root
-from local_brain.tools.file_tools import read_file, list_directory, file_info
-from local_brain.tools.git_tools import git_status, git_log
-from local_brain.tools.shell_tools import (
-    run_command,
-    ALLOWED_COMMANDS,
-    BLOCKED_COMMANDS,
+from local_brain.smolagent import (
+    create_agent,
+    file_info,
+    git_log,
+    git_status,
+    list_directory,
+    read_file,
+    run_smolagent,
 )
 
 
-class TestFileTools:
-    """Tests for file tools."""
+class TestSmolagentTools:
+    """Tests for smolagent tools."""
 
     def test_read_file_success(self, tmp_path):
         """Test reading an existing file within project root."""
-        # Set project root to tmp_path for this test
         set_project_root(tmp_path)
 
         test_file = tmp_path / "test.txt"
@@ -95,13 +98,12 @@ class TestFileTools:
         assert "outside project root" in result
 
 
-class TestGitTools:
-    """Tests for git tools."""
+class TestSmolagentGitTools:
+    """Tests for smolagent git tools."""
 
     def test_git_status(self):
         """Test git status returns something."""
         result = git_status()
-        # Either shows status or error (if not in a git repo)
         assert isinstance(result, str)
         assert len(result) > 0
 
@@ -112,52 +114,43 @@ class TestGitTools:
         assert len(result) > 0
 
 
-class TestShellTools:
-    """Tests for shell tools."""
+class TestSmolagentAgent:
+    """Tests for the smolagent CodeAgent."""
 
-    def test_allowed_commands_list(self):
-        """Test that allowed commands list is populated."""
-        assert "ls" in ALLOWED_COMMANDS
-        assert "cat" in ALLOWED_COMMANDS
-        assert "grep" in ALLOWED_COMMANDS
+    @patch("local_brain.smolagent.LiteLLMModel")
+    @patch("local_brain.smolagent.CodeAgent")
+    def test_create_agent(self, mock_code_agent, mock_model):
+        """Test agent creation."""
+        mock_model_instance = MagicMock()
+        mock_model.return_value = mock_model_instance
 
-    def test_blocked_commands_list(self):
-        """Test that blocked commands list includes dangerous commands."""
-        assert "rm" in BLOCKED_COMMANDS
-        assert "sudo" in BLOCKED_COMMANDS
-        assert "bash" in BLOCKED_COMMANDS
-        assert "python" in BLOCKED_COMMANDS
+        mock_agent_instance = MagicMock()
+        mock_code_agent.return_value = mock_agent_instance
 
-    def test_run_allowed_command(self):
-        """Test running an allowed command."""
-        result = run_command("echo hello")
-        assert "hello" in result
+        agent = create_agent("qwen3:latest", verbose=True)
 
-    def test_run_blocked_command(self):
-        """Test that blocked commands are rejected."""
-        result = run_command("rm -rf /")
+        mock_model.assert_called_once()
+        mock_code_agent.assert_called_once()
+        assert agent == mock_agent_instance
+
+    @patch("local_brain.smolagent.create_agent")
+    def test_run_smolagent(self, mock_create_agent):
+        """Test running the smolagent."""
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = "Test response"
+        mock_create_agent.return_value = mock_agent
+
+        result = run_smolagent("Hello", model="qwen3:latest", verbose=False)
+
+        assert result == "Test response"
+        mock_agent.run.assert_called_once_with("Hello")
+
+    @patch("local_brain.smolagent.create_agent")
+    def test_run_smolagent_handles_error(self, mock_create_agent):
+        """Test smolagent handles errors gracefully."""
+        mock_create_agent.side_effect = Exception("Connection refused")
+
+        result = run_smolagent("Hello")
+
         assert "Error" in result
-        assert "blocked" in result.lower()
-
-    def test_run_unknown_command(self):
-        """Test that unknown commands are rejected (allow-list enforcement)."""
-        result = run_command("someunknowncommand")
-        assert "Error" in result
-        assert "not in the allowed list" in result
-
-    def test_shell_metacharacters_blocked(self):
-        """Test that shell metacharacters are blocked."""
-        result = run_command("echo hello; rm -rf /")
-        assert "Error" in result
-        assert "metacharacter" in result.lower()
-
-    def test_pipe_blocked(self):
-        """Test that pipes are blocked."""
-        result = run_command("ls | grep test")
-        assert "Error" in result
-
-    def test_shell_interpreter_blocked(self):
-        """Test that shell interpreters are blocked."""
-        result = run_command("bash -c 'echo hello'")
-        assert "Error" in result
-        assert "blocked" in result.lower()
+        assert "Connection refused" in result
