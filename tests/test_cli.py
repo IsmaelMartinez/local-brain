@@ -26,10 +26,10 @@ class TestCLI:
         assert "Chat with local Ollama models" in result.output
 
     @patch("local_brain.cli.check_model_available")
-    @patch("local_brain.cli.run_agent")
-    def test_basic_prompt(self, mock_run_agent, mock_check_model):
+    @patch("local_brain.cli.run_smolagent")
+    def test_basic_prompt(self, mock_run_smolagent, mock_check_model):
         """Test basic prompt execution."""
-        mock_run_agent.return_value = "Test response"
+        mock_run_smolagent.return_value = "Test response"
         mock_check_model.return_value = True
 
         runner = CliRunner()
@@ -37,13 +37,13 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "Test response" in result.output
-        mock_run_agent.assert_called_once()
+        mock_run_smolagent.assert_called_once()
 
     @patch("local_brain.cli.check_model_available")
-    @patch("local_brain.cli.run_agent")
-    def test_model_option(self, mock_run_agent, mock_check_model):
+    @patch("local_brain.cli.run_smolagent")
+    def test_model_option(self, mock_run_smolagent, mock_check_model):
         """Test --model option with an installed model."""
-        mock_run_agent.return_value = "Response"
+        mock_run_smolagent.return_value = "Response"
         mock_check_model.return_value = True
 
         runner = CliRunner()
@@ -51,21 +51,21 @@ class TestCLI:
 
         assert result.exit_code == 0
         # Check that model was passed
-        call_kwargs = mock_run_agent.call_args[1]
+        call_kwargs = mock_run_smolagent.call_args[1]
         assert call_kwargs["model"] == "llama3.2:1b"
 
     @patch("local_brain.cli.check_model_available")
-    @patch("local_brain.cli.run_agent")
-    def test_verbose_option(self, mock_run_agent, mock_check_model):
+    @patch("local_brain.cli.run_smolagent")
+    def test_verbose_option(self, mock_run_smolagent, mock_check_model):
         """Test --verbose option."""
-        mock_run_agent.return_value = "Response"
+        mock_run_smolagent.return_value = "Response"
         mock_check_model.return_value = True
 
         runner = CliRunner()
         result = runner.invoke(main, ["-v", "Hello"])
 
         assert result.exit_code == 0
-        call_kwargs = mock_run_agent.call_args[1]
+        call_kwargs = mock_run_smolagent.call_args[1]
         assert call_kwargs["verbose"] is True
 
     @patch("local_brain.cli.get_available_models_summary")
