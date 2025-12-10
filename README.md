@@ -168,6 +168,8 @@ The LLM writes Python code that calls our tools—it cannot bypass them to run a
 
 - **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
 - **Docker Sandbox** — Stronger isolation via container when Docker is available
+- **CLI Wrappers** — Wrap existing tools (ripgrep, gh, tokei) instead of custom implementations
+- **Observability** — Add tracing and logging for debugging agent behavior
 
 ### Architecture Decisions
 
