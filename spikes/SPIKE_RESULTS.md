@@ -1,124 +1,88 @@
 # Phase 3 Spike Results
 
 **Date:** December 10, 2025  
-**Environment:** Python 3.13.11, macOS
+**Environment:** Python 3.13.11, macOS  
+**Status:** ✅ All spikes completed and implemented
 
 ---
 
 ## Summary
 
-| Spike | Result | Key Finding |
-|-------|--------|-------------|
-| 5: OTEL Tracing | ✅ **PASSED** | Works out of the box with Smolagents |
-| 6: grep-ast | ✅ **PASSED** | AST-aware search works, API is `grep(pattern, ignore_case)` |
-| 7: tree-sitter | ✅ **PASSED** | Definition extraction works perfectly |
-| 8: Pyodide Sandbox | ⚠️ **DEFER** | Pyodide not available, LocalPythonExecutor is sufficient |
+| Spike | Result | Implementation Status |
+|-------|--------|----------------------|
+| 5: OTEL Tracing | ✅ **PASSED** | ✅ Implemented in v0.5.0 |
+| 6: grep-ast | ✅ **PASSED** | ✅ Implemented in v0.6.0 (`search_code` tool) |
+| 7: tree-sitter | ✅ **PASSED** | ✅ Implemented in v0.6.0 (`list_definitions` tool) |
+| 8: Pyodide Sandbox | ⚠️ **DEFERRED** | N/A - LocalPythonExecutor is sufficient |
+
+> **Note:** Spike files 6, 7, and 8 have been deleted after successful implementation.
 
 ---
 
-## Spike 5: OTEL Tracing ✅
+## Spike 5: OTEL Tracing ✅ → Implemented v0.5.0
 
-### What Works
-- `openinference-instrumentation-smolagents` v0.1.20 installs and imports cleanly
-- `SmolagentsInstrumentor().instrument()` captures:
-  - Agent runs (`CodeAgent.run`)
-  - Individual steps (`Step 1`, `Step 2`, etc.)
-  - LLM calls with token counts
-  - Tool calls with inputs and outputs
-- Console exporter works for debugging
-- Structured spans with trace/span IDs
-
-### Sample Output
-```json
-{
-    "name": "SimpleTool",
-    "attributes": {
-        "tool.name": "add_numbers",
-        "input.value": "{\"a\": 3, \"b\": 4}",
-        "output.value": 7,
-        "openinference.span.kind": "TOOL"
-    }
-}
-```
-
-### Recommendation
-✅ **GO** — Add `--trace` flag that enables OTEL with ConsoleSpanExporter
+### Implementation
+- `--trace` flag added to CLI
+- Uses `openinference-instrumentation-smolagents` for automatic tracing
+- Captures agent runs, LLM calls, and tool invocations
+- Console exporter for debugging
 
 ---
 
-## Spike 6: grep-ast ✅
+## Spike 6: grep-ast ✅ → Implemented v0.6.0
 
-### What Works
-- `grep-ast` v0.9.0 installs cleanly
-- Language detection: 7/7 correct (Python, JS, TS, CSS, HTML, TOML, unknown)
-- `TreeContext` creation works
-- Search returns AST-aware context
+### Implementation Notes
+**Important API Discovery:** `tc.grep()` returns a *set of line numbers*, not formatted output!
 
-### API Note
-Correct signature is:
+Correct usage:
 ```python
-tc.grep(pattern, ignore_case=False)  # NOT tc.grep(pattern, color=False)
+tc = TreeContext(file_path, code=content)
+lines_of_interest = tc.grep(pattern, ignore_case=True)  # Returns set of line numbers
+tc.add_lines_of_interest(lines_of_interest)
+tc.add_context()
+result = tc.format()  # Returns formatted string with context
 ```
 
-### Recommendation
-✅ **GO** — Use grep-ast for `search_code` tool
+### Tool: `search_code(pattern, file_path, ignore_case)`
+- AST-aware code search
+- Shows intelligent context around matches
+- Falls back to simple grep for unsupported languages
 
 ---
 
-## Spike 7: tree-sitter ✅
+## Spike 7: tree-sitter ✅ → Implemented v0.6.0
 
-### What Works
-- `tree-sitter` v0.25.2 + `tree-sitter-language-pack` v0.13.0 work on Python 3.13
-- Parser loads and parses Python correctly
-- Can extract all definitions (classes, functions)
-- Can extract signatures without bodies
-
-### Python 3.13 Compatibility Note
-`tree-sitter-languages` doesn't support Python 3.13 yet, but `tree-sitter-language-pack` does and has the same API:
+### Implementation Notes
+**Python 3.13 Compatibility:** Use `tree-sitter-language-pack` (not `tree-sitter-languages`):
 ```python
 try:
     import tree_sitter_language_pack as ts_langs
 except ImportError:
     import tree_sitter_languages as ts_langs
-
-parser = ts_langs.get_parser("python")
 ```
 
-### Sample Output
-```
-class UserService:
-  def __init__(self, db):
-  def get_user(self, user_id: int) -> dict:
-  def create_user(self, name: str, email: str) -> int:
-def validate_email(email: str) -> bool:
-def fetch_user_async(user_id: int) -> dict:
+**Docstring Extraction:** Body is a `block` node, not `body` field. First child of block may be `string` directly:
+```python
+body = None
+for child in node.children:
+    if child.type == "block":
+        body = child
+        break
 ```
 
-### Recommendation
-✅ **GO** — Use tree-sitter for `list_definitions` tool
+### Tool: `list_definitions(file_path)`
+- Extracts class/function definitions with signatures
+- Includes docstrings
+- Supports Python (full), other languages (basic)
 
 ---
 
-## Spike 8: Pyodide/WASM Sandbox ⚠️
+## Spike 8: Pyodide/WASM Sandbox ⚠️ → Deferred
 
-### Findings
-
-**Available Executors in Smolagents:**
-- `LocalPythonExecutor` ✅ (default, recommended)
-- `DockerExecutor` (requires Docker daemon)
-- `E2BExecutor` (requires API key)
-- `WasmExecutor` (exists but not PyodideExecutor)
-- `BlaxelExecutor`, `ModalExecutor` (cloud services)
-
-**PyodideExecutor:** Does NOT exist in smolagents (there's `WasmExecutor` instead)
-
-**LocalPythonExecutor:** 
-- Default executor
-- Blocks dangerous imports
-- Sufficient for our use case
-
-### Recommendation
-🔴 **DEFER** — Don't pursue WasmExecutor. LocalPythonExecutor is good enough.
+### Conclusion
+- `PyodideExecutor` does not exist in smolagents
+- `LocalPythonExecutor` (default) is sufficient for our needs
+- No action needed
 
 ---
 
@@ -126,41 +90,30 @@ def fetch_user_async(user_id: int) -> dict:
 
 | Package | Version | Python 3.13 | Status |
 |---------|---------|-------------|--------|
-| grep-ast | 0.9.0 | ✅ | Works |
-| tree-sitter | 0.25.2 | ✅ | Works |
-| tree-sitter-language-pack | 0.13.0 | ✅ | Use instead of tree-sitter-languages |
-| tree-sitter-languages | 1.10.2 | ❌ | No Python 3.13 wheels |
-| openinference-instrumentation-smolagents | 0.1.20 | ✅ | Works |
-| opentelemetry-sdk | 1.39.0 | ✅ | Works |
+| grep-ast | 0.9.0 | ✅ | In production |
+| tree-sitter | 0.25.2 | ✅ | In production |
+| tree-sitter-language-pack | 0.13.0 | ✅ | In production |
+| tree-sitter-languages | 1.10.2 | ❌ | Replaced by language-pack |
+| openinference-instrumentation-smolagents | 0.1.20 | ✅ | Optional dependency |
+| opentelemetry-sdk | 1.39.0 | ✅ | Optional dependency |
 
 ---
 
-## Decision Summary
+## Implementation Status
 
-| Item | Decision | Rationale |
-|------|----------|-----------|
-| OTEL Tracing | ✅ Implement | Works out of the box, captures everything |
-| grep-ast search | ✅ Implement | Proven library, AST-aware context |
-| tree-sitter definitions | ✅ Implement | Works perfectly for Python |
-| Pyodide sandbox | 🔴 Skip | Not available, LocalPythonExecutor sufficient |
-| Output truncation | ✅ Implement | Simple, essential guardrail |
-| Timeouts | ✅ Implement | Simple, defensive measure |
+| Item | Decision | Status |
+|------|----------|--------|
+| OTEL Tracing | ✅ Implement | ✅ Done (v0.5.0) |
+| grep-ast search | ✅ Implement | ✅ Done (v0.6.0) |
+| tree-sitter definitions | ✅ Implement | ✅ Done (v0.6.0) |
+| Pyodide sandbox | 🔴 Skip | N/A |
+| Output truncation | ✅ Implement | ✅ Done (v0.5.0) |
+| Timeouts | ✅ Implement | ✅ Done (v0.5.0) |
 
 ---
 
-## Next Steps
+## Phase Completion
 
-1. **Phase A: Harden (Week 1-2)**
-   - Add output truncation to all tools
-   - Add per-call timeouts  
-   - Add `--trace` flag with OTEL
-   - Add `local-brain doctor` command
-
-2. **Phase B: Navigate (Week 3-5)**
-   - Add `search_code` tool using grep-ast
-   - Add `list_definitions` tool using tree-sitter
-   - Add `code_stats` tool using pygount (optional)
-
-3. **Phase C: Observe (Week 6+)**
-   - Ship and gather feedback
-   - Iterate based on real usage
+- ✅ **Phase A: Harden (v0.5.0)** - Complete
+- ✅ **Phase B: Navigate (v0.6.0)** - Complete  
+- 🔜 **Phase C: Observe** - Next
