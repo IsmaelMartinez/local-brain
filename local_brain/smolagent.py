@@ -5,11 +5,21 @@ with sandboxed Python execution via LocalPythonExecutor.
 """
 
 import subprocess
+import warnings
 from datetime import datetime
 
-from smolagents import CodeAgent, LiteLLMModel, tool
+# Suppress smolagents warning about decorators - we use LocalPythonExecutor (not remote)
+# so the serialization warning doesn't apply to our use case
+warnings.filterwarnings(
+    "ignore",
+    message="Function .* has decorators other than @tool",
+    category=UserWarning,
+    module="smolagents.tools",
+)
 
-from .security import (
+from smolagents import CodeAgent, LiteLLMModel, tool  # noqa: E402
+
+from .security import (  # noqa: E402
     safe_path,
     is_sensitive_file,
     get_project_root,
