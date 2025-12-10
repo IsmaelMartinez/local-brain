@@ -12,7 +12,7 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from opentelemetry.sdk.trace import TracerProvider
+    pass
 
 # Track if tracing is enabled
 _tracing_enabled = False
@@ -118,4 +118,3 @@ def get_tracer(name: str = "local-brain"):
                 return nullcontext()
 
         return NoOpTracer()
-

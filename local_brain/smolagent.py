@@ -52,7 +52,9 @@ def read_file(path: str) -> str:
             return f"Error: Access to sensitive file '{path}' is blocked"
 
         content = resolved.read_text()
-        return truncate_output(content, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS)
+        return truncate_output(
+            content, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except PermissionError as e:
         return f"Error: {e}"
     except FileNotFoundError:
@@ -111,7 +113,9 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
             str(f.relative_to(root) if f.is_relative_to(root) else f)
             for f in safe_files
         )
-        return truncate_output(result, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS)
+        return truncate_output(
+            result, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except PermissionError as e:
         return f"Error: {e}"
     except ToolTimeoutError as e:

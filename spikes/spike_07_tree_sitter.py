@@ -71,7 +71,8 @@ def test_tree_sitter_imports() -> dict[str, Any]:
     results: dict[str, Any] = {"passed": True, "details": {}}
 
     try:
-        import tree_sitter
+        import tree_sitter  # noqa: F401
+
         results["details"]["tree_sitter"] = "✅ tree_sitter imported"
     except ImportError as e:
         results["passed"] = False
@@ -81,14 +82,18 @@ def test_tree_sitter_imports() -> dict[str, Any]:
     # or tree_sitter_languages (original)
     try:
         import tree_sitter_language_pack as ts_langs
+
         results["details"]["languages"] = "✅ tree_sitter_language_pack imported"
     except ImportError:
         try:
-            import tree_sitter_languages as ts_langs
+            import tree_sitter_languages as ts_langs  # noqa: F401
+
             results["details"]["languages"] = "✅ tree_sitter_languages imported"
         except ImportError as e:
             results["passed"] = False
-            results["details"]["languages"] = f"❌ Neither tree_sitter_languages nor tree_sitter_language_pack available: {e}"
+            results["details"]["languages"] = (
+                f"❌ Neither tree_sitter_languages nor tree_sitter_language_pack available: {e}"
+            )
 
     return results
 
@@ -129,28 +134,28 @@ def test_extract_definitions() -> dict[str, Any]:
 
         parser = ts_langs.get_parser("python")
         tree = parser.parse(SAMPLE_CODE.encode())
-        
+
         definitions = []
-        
+
         def walk(node, depth=0):
             """Walk the AST and collect definitions."""
             if node.type == "class_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
                     definitions.append(("class", name_node.text.decode()))
-            
+
             elif node.type == "function_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
                     definitions.append(("function", name_node.text.decode()))
-            
+
             for child in node.children:
                 walk(child, depth + 1)
-        
+
         walk(tree.root_node)
-        
+
         results["details"]["definitions"] = f"✅ Found {len(definitions)} definitions"
-        
+
         expected = [
             ("class", "UserService"),
             ("function", "__init__"),
@@ -159,16 +164,16 @@ def test_extract_definitions() -> dict[str, Any]:
             ("function", "validate_email"),
             ("function", "fetch_user_async"),
         ]
-        
+
         found_names = [d[1] for d in definitions]
         expected_names = [e[1] for e in expected]
-        
+
         missing = set(expected_names) - set(found_names)
         if missing:
             results["details"]["missing"] = f"⚠️ Missing: {missing}"
         else:
             results["details"]["all_found"] = "✅ All expected definitions found"
-        
+
         for def_type, name in definitions[:5]:
             results["details"][f"def_{name}"] = f"   {def_type}: {name}"
 
@@ -192,48 +197,48 @@ def test_extract_signatures() -> dict[str, Any]:
         parser = ts_langs.get_parser("python")
         tree = parser.parse(SAMPLE_CODE.encode())
         code_bytes = SAMPLE_CODE.encode()
-        
+
         signatures = []
-        
+
         def get_signature(node) -> str:
             """Extract signature from function definition."""
             # Get from 'def' to end of parameters ')'
             start = node.start_byte
-            
+
             # Find the colon that ends the signature
             params = node.child_by_field_name("parameters")
             return_type = node.child_by_field_name("return_type")
-            
+
             if return_type:
                 end = return_type.end_byte
             elif params:
                 end = params.end_byte
             else:
                 end = node.end_byte
-            
+
             sig = code_bytes[start:end].decode()
             # Clean up - take first line only
-            sig = sig.split('\n')[0].strip()
-            if not sig.endswith(':'):
-                sig += ':'
+            sig = sig.split("\n")[0].strip()
+            if not sig.endswith(":"):
+                sig += ":"
             return sig
-        
+
         def walk(node):
             if node.type == "function_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
                     sig = get_signature(node)
                     signatures.append(sig)
-            
+
             for child in node.children:
                 walk(child)
-        
+
         walk(tree.root_node)
-        
+
         results["details"]["signatures"] = f"✅ Extracted {len(signatures)} signatures"
-        
+
         for sig in signatures[:4]:
-            results["details"][f"sig"] = f"   {sig[:60]}..."
+            results["details"]["sig"] = f"   {sig[:60]}..."
 
     except Exception as e:
         results["passed"] = False
@@ -251,16 +256,15 @@ def test_list_definitions_tool() -> dict[str, Any]:
             import tree_sitter_language_pack as ts_langs
         except ImportError:
             import tree_sitter_languages as ts_langs
-        
+
         def list_definitions(file_path: str) -> str:
             """Extract definitions from a Python file - simulates the tool."""
             code = Path(file_path).read_text()
             parser = ts_langs.get_parser("python")
             tree = parser.parse(code.encode())
-            code_bytes = code.encode()
-            
+
             output_lines = []
-            
+
             def get_docstring(node) -> str | None:
                 """Get docstring if present."""
                 body = node.child_by_field_name("body")
@@ -272,27 +276,27 @@ def test_list_definitions_tool() -> dict[str, Any]:
                             doc = string.text.decode().strip('"""').strip("'''").strip()
                             return doc[:100] + "..." if len(doc) > 100 else doc
                 return None
-            
+
             def walk(node, indent=0):
                 prefix = "  " * indent
-                
+
                 if node.type == "class_definition":
                     name = node.child_by_field_name("name")
                     if name:
                         output_lines.append(f"{prefix}class {name.text.decode()}:")
                         doc = get_docstring(node)
                         if doc:
-                            output_lines.append(f"{prefix}  \"{doc}\"")
+                            output_lines.append(f'{prefix}  "{doc}"')
                         # Process methods
                         for child in node.children:
                             walk(child, indent + 1)
                         return  # Don't recurse again
-                
+
                 elif node.type == "function_definition":
                     name = node.child_by_field_name("name")
                     params = node.child_by_field_name("parameters")
                     ret = node.child_by_field_name("return_type")
-                    
+
                     if name:
                         sig = f"def {name.text.decode()}"
                         if params:
@@ -303,23 +307,23 @@ def test_list_definitions_tool() -> dict[str, Any]:
                         output_lines.append(f"{prefix}{sig}")
                         doc = get_docstring(node)
                         if doc:
-                            output_lines.append(f"{prefix}  \"{doc}\"")
+                            output_lines.append(f'{prefix}  "{doc}"')
                         return  # Don't recurse into body
-                
+
                 for child in node.children:
                     walk(child, indent)
-            
+
             walk(tree.root_node)
             return "\n".join(output_lines)
-        
+
         # Test with temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(SAMPLE_CODE)
             temp_path = f.name
-        
+
         try:
             result = list_definitions(temp_path)
-            lines = result.split('\n')
+            lines = result.split("\n")
             results["details"]["tool_output"] = f"✅ Generated {len(lines)} lines"
             results["details"]["sample"] = f"   Preview:\n{result[:300]}..."
         finally:
@@ -374,4 +378,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

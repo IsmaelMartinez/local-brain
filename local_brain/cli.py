@@ -196,9 +196,7 @@ def doctor():
     except Exception:
         pass
 
-    tier1_models = [
-        name for name, info in RECOMMENDED_MODELS.items() if info.tier == 1
-    ]
+    tier1_models = [name for name, info in RECOMMENDED_MODELS.items() if info.tier == 1]
     tier1_installed = [m for m in tier1_models if m in installed]
 
     if tier1_installed:
@@ -234,10 +232,14 @@ def doctor():
     # Check 5: Tracing dependencies (optional)
     click.echo("\nChecking optional features...")
     try:
-        from openinference.instrumentation.smolagents import SmolagentsInstrumentor
-        from opentelemetry.sdk.trace import TracerProvider
+        import importlib.util
 
-        click.echo("  ✅ OTEL tracing available (--trace flag)")
+        if importlib.util.find_spec(
+            "openinference.instrumentation.smolagents"
+        ) and importlib.util.find_spec("opentelemetry.sdk.trace"):
+            click.echo("  ✅ OTEL tracing available (--trace flag)")
+        else:
+            raise ImportError("Missing tracing dependencies")
     except ImportError:
         click.echo("  ⚪ OTEL tracing not installed (optional)")
         click.echo(

@@ -1,7 +1,6 @@
 """Tests for the security module - path jailing, truncation, timeouts."""
 
 import os
-import tempfile
 import time
 from pathlib import Path
 
@@ -389,4 +388,3 @@ class TestIntegrationPathJailingWithTools:
         result = read_file(str(env_file))
         assert "Error" in result
         assert "sensitive" in result.lower() or "blocked" in result.lower()
-

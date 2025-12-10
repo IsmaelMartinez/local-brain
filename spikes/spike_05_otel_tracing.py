@@ -85,9 +85,7 @@ def test_smolagents_instrumentation() -> dict[str, Any]:
         # Reset tracer (in case previous test set it)
         tracer_provider = TracerProvider()
         trace.set_tracer_provider(tracer_provider)
-        tracer_provider.add_span_processor(
-            BatchSpanProcessor(ConsoleSpanExporter())
-        )
+        tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
 
         # Instrument smolagents
         instrumentor = SmolagentsInstrumentor()
@@ -108,7 +106,6 @@ def test_traced_agent_run() -> dict[str, Any]:
 
     try:
         from io import StringIO
-        import sys as _sys
 
         from openinference.instrumentation.smolagents import SmolagentsInstrumentor
         from opentelemetry import trace
@@ -121,11 +118,11 @@ def test_traced_agent_run() -> dict[str, Any]:
 
         # Capture console output to verify spans are emitted
         captured = StringIO()
-        
+
         # Set up tracer with console exporter
         tracer_provider = TracerProvider()
         trace.set_tracer_provider(tracer_provider)
-        
+
         # Use SimpleSpanProcessor for immediate export
         exporter = ConsoleSpanExporter(out=captured)
         tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
@@ -137,11 +134,11 @@ def test_traced_agent_run() -> dict[str, Any]:
         @tool
         def add_numbers(a: int, b: int) -> int:
             """Add two numbers together.
-            
+
             Args:
                 a: First number
                 b: Second number
-            
+
             Returns:
                 Sum of a and b
             """
@@ -156,16 +153,24 @@ def test_traced_agent_run() -> dict[str, Any]:
 
         # Run agent
         result = agent.run("What is 3 + 4? Use the add_numbers tool.")
-        
+
         results["details"]["agent_result"] = f"✅ Agent returned: {str(result)[:50]}..."
 
         # Check if spans were captured
         output = captured.getvalue()
-        if "smolagents" in output.lower() or "span" in output.lower() or len(output) > 100:
-            results["details"]["spans_captured"] = f"✅ Traces captured ({len(output)} chars)"
+        if (
+            "smolagents" in output.lower()
+            or "span" in output.lower()
+            or len(output) > 100
+        ):
+            results["details"]["spans_captured"] = (
+                f"✅ Traces captured ({len(output)} chars)"
+            )
         else:
             # Even if no output, instrumentation may work - check if agent ran
-            results["details"]["spans_captured"] = "⚠️ No spans in console (may need OTLP exporter)"
+            results["details"]["spans_captured"] = (
+                "⚠️ No spans in console (may need OTLP exporter)"
+            )
 
     except Exception as e:
         results["passed"] = False
@@ -206,7 +211,9 @@ def main() -> int:
     print("\n" + "=" * 60)
     if all_passed:
         print("✅ SPIKE 5 PASSED: OTEL tracing works with Smolagents!")
-        print("\nRecommendation: Use --trace flag with ConsoleSpanExporter for debugging")
+        print(
+            "\nRecommendation: Use --trace flag with ConsoleSpanExporter for debugging"
+        )
         return 0
     else:
         print("❌ SPIKE 5 FAILED: See details above")
@@ -215,4 +222,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
