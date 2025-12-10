@@ -2,7 +2,7 @@
 
 **Date:** December 10, 2025  
 **Status:** Research Document  
-**Version:** 2.0 (Simplified)
+**Version:** 2.1 (Phase A Complete)
 
 ---
 
@@ -19,11 +19,11 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 
 ### Action Plan
 
-| Phase | Goal | Timeline |
-|-------|------|----------|
-| **A: Harden** | Safety guardrails, observability | Week 1-2 |
-| **B: Navigate** | Better code search & structure tools | Week 3-5 |
-| **C: Observe** | Ship, gather feedback, iterate | Week 6+ |
+| Phase | Goal | Timeline | Status |
+|-------|------|----------|--------|
+| **A: Harden** | Safety guardrails, observability | Week 1-2 | ✅ **COMPLETE** (v0.5.0) |
+| **B: Navigate** | Better code search & structure tools | Week 3-5 | 🔜 Next |
+| **C: Observe** | Ship, gather feedback, iterate | Week 6+ | Pending |
 
 ---
 
@@ -56,20 +56,27 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 
 | Tool | Purpose |
 |------|---------|
-| `read_file` | Read file contents (path-jailed) |
-| `list_directory` | Glob-based file listing |
-| `file_info` | File metadata |
-| `git_diff` | Show changes |
-| `git_status` | Branch/changes summary |
-| `git_log` | Commit history |
-| `git_changed_files` | Modified file list |
+| `read_file` | Read file contents (path-jailed, truncated, with timeout) |
+| `list_directory` | Glob-based file listing (truncated, with timeout) |
+| `file_info` | File metadata (with timeout) |
+| `git_diff` | Show changes (truncated) |
+| `git_status` | Branch/changes summary (truncated) |
+| `git_log` | Commit history (truncated) |
+| `git_changed_files` | Modified file list (truncated) |
 
-### Gaps to Address
+### Gaps Addressed (v0.5.0)
+
+| Gap | Before | After (v0.5.0) |
+|-----|--------|----------------|
+| **Output safety** | No limits | ✅ Truncation (200 lines/20K chars) + timeouts (30s) |
+| **Observability** | Verbose flag only | ✅ OTEL tracing (`--trace` flag) |
+| **Health checks** | None | ✅ `local-brain doctor` command |
+| **Test coverage** | Basic | ✅ 60 tests (path-jailing, truncation, timeouts) |
+
+### Remaining Gaps (Phase B)
 
 | Gap | Current | Target |
 |-----|---------|--------|
-| **Output safety** | No limits | Truncation + timeouts |
-| **Observability** | Verbose flag only | OTEL tracing |
 | **Code search** | Basic glob | AST-aware (grep-ast) |
 | **Navigation** | Read whole file | Extract definitions only |
 
@@ -95,102 +102,73 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 
 ## 3. Implementation Plan
 
-### Phase A: Harden (Week 1-2)
+### Phase A: Harden (Week 1-2) ✅ COMPLETE
 
-#### A.1 Output Truncation
+#### A.1 Output Truncation ✅
+
+Implemented in `security.py`:
 
 ```python
 def truncate_output(content: str, max_lines: int = 100, max_chars: int = 10000) -> str:
     """Clamp tool outputs with truncation metadata."""
-    lines = content.split('\n')
-    truncated = False
-    
-    if len(lines) > max_lines:
-        lines = lines[:max_lines]
-        truncated = True
-    
-    result = '\n'.join(lines)
-    if len(result) > max_chars:
-        result = result[:max_chars]
-        truncated = True
-    
-    if truncated:
-        result += f"\n\n[TRUNCATED: Output exceeded limits. Use more specific queries.]"
-    
-    return result
+    # Applied to all tools with 200 lines / 20K chars default
 ```
 
-#### A.2 Per-Call Timeouts
+#### A.2 Per-Call Timeouts ✅
+
+Implemented in `security.py`:
 
 ```python
-import signal
-from functools import wraps
-
 def with_timeout(seconds: int = 30):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handler(signum, frame):
-                raise TimeoutError(f"Tool {func.__name__} timed out")
-            
-            signal.signal(signal.SIGALRM, handler)
-            signal.alarm(seconds)
-            try:
-                return func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-        return wrapper
-    return decorator
+    """Decorator to add timeout to tools using SIGALRM."""
+    # Applied to read_file, list_directory, file_info
 ```
 
-#### A.3 OTEL Tracing (Spike #5 Validated ✅)
+#### A.3 OTEL Tracing ✅
 
-**What gets traced automatically:**
-- Agent runs (`CodeAgent.run`)
-- Individual steps (`Step 1`, `Step 2`)
-- LLM calls with token counts
-- Tool calls with inputs/outputs
+Implemented in `tracing.py`:
 
 ```python
-from openinference.instrumentation.smolagents import SmolagentsInstrumentor
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, BatchSpanProcessor
-
 def setup_tracing():
     """Enable OTEL tracing - Smolagents captures everything automatically."""
-    tracer_provider = TracerProvider()
-    trace.set_tracer_provider(tracer_provider)
-    tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-    SmolagentsInstrumentor().instrument(tracer_provider=tracer_provider)
-
-# CLI flag
-@click.option('--trace', is_flag=True, help='Enable tracing')
-def main(trace: bool, ...):
-    if trace:
-        setup_tracing()
+    # Enabled via --trace flag
 ```
 
-#### A.4 Health Check Command
+#### A.4 Health Check Command ✅
 
 ```bash
 $ local-brain doctor
 
-✅ Ollama is running (v0.4.1)
-✅ Models available: qwen3:latest, qwen2.5-coder:7b
-✅ Recommended model installed: qwen3:latest
-✅ Tool test: read_file executed successfully
+🔍 Local Brain Health Check
+
+Checking Ollama...
+  ✅ Ollama is installed (ollama version is 0.13.1)
+
+Checking Ollama server...
+  ✅ Ollama server is running (9 models)
+
+Checking recommended models...
+  ✅ Recommended models installed: qwen3:latest
+
+Checking tools...
+  ✅ Tools working (7 tools available)
+
+Checking optional features...
+  ✅ OTEL tracing available (--trace flag)
+
+========================================
+✅ All checks passed! Local Brain is ready.
 ```
 
-#### A.5 Tasks
+#### A.5 Tasks ✅
 
-| Task | Effort | Priority |
-|------|--------|----------|
-| Add output truncation | 1 day | P0 |
-| Add per-call timeouts | 0.5 day | P0 |
-| Add `--trace` flag (OTEL) | 0.5 day | P1 |
-| Add `local-brain doctor` | 1 day | P1 |
-| Integration tests for path-jailing | 1 day | P1 |
+| Task | Effort | Priority | Status |
+|------|--------|----------|--------|
+| Add output truncation | 1 day | P0 | ✅ Done |
+| Add per-call timeouts | 0.5 day | P0 | ✅ Done |
+| Add `--trace` flag (OTEL) | 0.5 day | P1 | ✅ Done |
+| Add `local-brain doctor` | 1 day | P1 | ✅ Done |
+| Integration tests for path-jailing | 1 day | P1 | ✅ Done (60 tests) |
 
 ---
 
@@ -321,12 +299,12 @@ These ideas are captured for future reference but are **not planned**:
 ## 5. Tool Implementation Checklist
 
 For each new tool:
-- [ ] Define clear docstring with Args/Returns
-- [ ] Implement path jailing (if file-related)
-- [ ] Add timeout handling
-- [ ] Add output truncation
-- [ ] Write unit tests
-- [ ] Add to `ALL_TOOLS` list
+- [x] Define clear docstring with Args/Returns
+- [x] Implement path jailing (if file-related)
+- [x] Add timeout handling
+- [x] Add output truncation
+- [x] Write unit tests
+- [x] Add to `ALL_TOOLS` list
 - [ ] Update SKILL.md documentation
 
 ---
@@ -347,4 +325,29 @@ For each new tool:
 
 ---
 
-*Next review: January 2025*
+## 7. Changelog
+
+### v0.5.0 (December 10, 2025) - Phase A: Harden
+
+**New Features:**
+- Output truncation for all tools (200 lines / 20K chars default)
+- Per-call timeouts (30s default) using SIGALRM
+- OTEL tracing support via `--trace` flag
+- `local-brain doctor` health check command
+
+**Improvements:**
+- Enhanced path-jailing with sensitive file detection
+- Consistent error handling with `ToolTimeoutError`
+
+**Testing:**
+- 60 tests total (all passing)
+- Comprehensive security tests (path traversal, symlinks)
+- Truncation and timeout tests
+
+**Dependencies:**
+- Optional: `openinference-instrumentation-smolagents>=0.1.20`
+- Optional: `opentelemetry-sdk>=1.39.0`
+
+---
+
+*Next review: January 2026*

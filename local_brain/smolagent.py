@@ -5,11 +5,38 @@ with sandboxed Python execution via LocalPythonExecutor.
 """
 
 import subprocess
+import warnings
 from datetime import datetime
 
-from smolagents import CodeAgent, LiteLLMModel, tool
+# Suppress smolagents warning about decorators - we use LocalPythonExecutor (not remote)
+# so the serialization warning doesn't apply to our use case
+warnings.filterwarnings(
+    "ignore",
+    message="Function .* has decorators other than @tool",
+    category=UserWarning,
+    module="smolagents.tools",
+)
 
-from .security import safe_path, is_sensitive_file, get_project_root
+from smolagents import CodeAgent, LiteLLMModel, tool  # noqa: E402
+
+from .security import (  # noqa: E402
+    safe_path,
+    is_sensitive_file,
+    get_project_root,
+    truncate_output,
+    with_timeout,
+    ToolTimeoutError,
+)
+
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+# Default limits for tool outputs
+DEFAULT_MAX_LINES = 200
+DEFAULT_MAX_CHARS = 20000
+DEFAULT_TIMEOUT_SECONDS = 30
 
 
 # ============================================================================
@@ -18,6 +45,7 @@ from .security import safe_path, is_sensitive_file, get_project_root
 
 
 @tool
+@with_timeout(DEFAULT_TIMEOUT_SECONDS)
 def read_file(path: str) -> str:
     """Read the contents of a file.
 
@@ -34,18 +62,21 @@ def read_file(path: str) -> str:
             return f"Error: Access to sensitive file '{path}' is blocked"
 
         content = resolved.read_text()
-        if len(content) > 50000:
-            return content[:50000] + f"\n\n... (truncated, {len(content)} total chars)"
-        return content
+        return truncate_output(
+            content, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except PermissionError as e:
         return f"Error: {e}"
     except FileNotFoundError:
         return f"Error: File '{path}' not found"
+    except ToolTimeoutError as e:
+        return f"Error: {e}"
     except Exception as e:
         return f"Error reading file: {e}"
 
 
 @tool
+@with_timeout(DEFAULT_TIMEOUT_SECONDS)
 def list_directory(path: str = ".", pattern: str = "*") -> str:
     """List files in a directory matching a pattern.
 
@@ -88,17 +119,23 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
         if not safe_files:
             return f"No files matching '{pattern}' found in '{path}'"
 
-        return "\n".join(
+        result = "\n".join(
             str(f.relative_to(root) if f.is_relative_to(root) else f)
             for f in safe_files
         )
+        return truncate_output(
+            result, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except PermissionError as e:
+        return f"Error: {e}"
+    except ToolTimeoutError as e:
         return f"Error: {e}"
     except Exception as e:
         return f"Error listing directory: {e}"
 
 
 @tool
+@with_timeout(DEFAULT_TIMEOUT_SECONDS)
 def file_info(path: str) -> str:
     """Get information about a file (size, type, modification time).
 
@@ -139,6 +176,8 @@ def file_info(path: str) -> str:
         return f"Path: {path}\nType: {file_type}\nSize: {size_str}\nModified: {mtime}"
     except PermissionError as e:
         return f"Error: {e}"
+    except ToolTimeoutError as e:
+        return f"Error: {e}"
     except Exception as e:
         return f"Error getting file info: {e}"
 
@@ -162,18 +201,21 @@ def git_diff(staged: bool = False, file_path: str = "") -> str:
 
     try:
         result = subprocess.run(
-            args, capture_output=True, text=True, timeout=30, cwd=get_project_root()
+            args,
+            capture_output=True,
+            text=True,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            cwd=get_project_root(),
         )
         if result.returncode != 0:
             return f"Error: {result.stderr}"
         if not result.stdout.strip():
             return "No changes found" + (" (staged)" if staged else " (unstaged)")
-        output = result.stdout
-        if len(output) > 50000:
-            return output[:50000] + f"\n\n... (truncated, {len(output)} total chars)"
-        return output
+        return truncate_output(
+            result.stdout, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except subprocess.TimeoutExpired:
-        return "Error: Git command timed out"
+        return f"Error: Git command timed out after {DEFAULT_TIMEOUT_SECONDS}s"
     except FileNotFoundError:
         return "Error: Git is not installed"
     except Exception as e:
@@ -192,15 +234,18 @@ def git_status() -> str:
             ["git", "status", "--short", "--branch"],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            cwd=get_project_root(),
         )
         if result.returncode != 0:
             return f"Error: {result.stderr}"
         if not result.stdout.strip():
             return "Working tree clean"
-        return result.stdout
+        return truncate_output(
+            result.stdout, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except subprocess.TimeoutExpired:
-        return "Error: Git command timed out"
+        return f"Error: Git command timed out after {DEFAULT_TIMEOUT_SECONDS}s"
     except FileNotFoundError:
         return "Error: Git is not installed"
     except Exception as e:
@@ -222,15 +267,18 @@ def git_log(count: int = 10) -> str:
             ["git", "log", f"-{min(count, 50)}", "--oneline"],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            cwd=get_project_root(),
         )
         if result.returncode != 0:
             return f"Error: {result.stderr}"
         if not result.stdout.strip():
             return "No commits found"
-        return result.stdout
+        return truncate_output(
+            result.stdout, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except subprocess.TimeoutExpired:
-        return "Error: Git command timed out"
+        return f"Error: Git command timed out after {DEFAULT_TIMEOUT_SECONDS}s"
     except FileNotFoundError:
         return "Error: Git is not installed"
     except Exception as e:
@@ -253,7 +301,13 @@ def git_changed_files(staged: bool = False, include_untracked: bool = False) -> 
         args.insert(2, "--cached")
 
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            cwd=get_project_root(),
+        )
         if result.returncode != 0:
             return f"Error: {result.stderr}"
 
@@ -264,7 +318,8 @@ def git_changed_files(staged: bool = False, include_untracked: bool = False) -> 
                 ["git", "ls-files", "--others", "--exclude-standard"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=DEFAULT_TIMEOUT_SECONDS,
+                cwd=get_project_root(),
             )
             if result2.returncode == 0:
                 untracked = [f for f in result2.stdout.strip().split("\n") if f]
@@ -273,9 +328,12 @@ def git_changed_files(staged: bool = False, include_untracked: bool = False) -> 
         if not files:
             return "No changed files found"
 
-        return "\n".join(sorted(set(files)))
+        output = "\n".join(sorted(set(files)))
+        return truncate_output(
+            output, max_lines=DEFAULT_MAX_LINES, max_chars=DEFAULT_MAX_CHARS
+        )
     except subprocess.TimeoutExpired:
-        return "Error: Git command timed out"
+        return f"Error: Git command timed out after {DEFAULT_TIMEOUT_SECONDS}s"
     except FileNotFoundError:
         return "Error: Git is not installed"
     except Exception as e:

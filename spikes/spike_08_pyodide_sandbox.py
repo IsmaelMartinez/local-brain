@@ -22,23 +22,27 @@ def test_smolagents_executors() -> dict[str, Any]:
 
     try:
         import smolagents
-        
+
         # List all public attributes
-        all_attrs = [a for a in dir(smolagents) if not a.startswith('_')]
-        
+        all_attrs = [a for a in dir(smolagents) if not a.startswith("_")]
+
         # Look for executor-related classes
-        executor_names = [a for a in all_attrs if 'executor' in a.lower() or 'sandbox' in a.lower()]
-        results["details"]["executor_attrs"] = f"Found: {executor_names or 'none with executor/sandbox in name'}"
-        
+        executor_names = [
+            a for a in all_attrs if "executor" in a.lower() or "sandbox" in a.lower()
+        ]
+        results["details"]["executor_attrs"] = (
+            f"Found: {executor_names or 'none with executor/sandbox in name'}"
+        )
+
         # Check for specific executors
         executors_to_check = [
             "LocalPythonExecutor",
-            "PyodideExecutor", 
+            "PyodideExecutor",
             "DockerExecutor",
             "E2BExecutor",
             "SecurePythonExecutor",
         ]
-        
+
         available = []
         for name in executors_to_check:
             if hasattr(smolagents, name):
@@ -46,7 +50,7 @@ def test_smolagents_executors() -> dict[str, Any]:
                 results["details"][f"has_{name}"] = f"✅ {name} available"
             else:
                 results["details"][f"has_{name}"] = f"❌ {name} not found"
-        
+
         results["details"]["available_executors"] = f"Available: {available}"
 
     except Exception as e:
@@ -62,38 +66,43 @@ def test_local_python_executor() -> dict[str, Any]:
 
     try:
         from smolagents.local_python_executor import LocalPythonExecutor
-        
+
         executor = LocalPythonExecutor()
         results["details"]["create"] = "✅ LocalPythonExecutor created"
-        
+
         # Check what's blocked
-        if hasattr(executor, 'forbidden_imports'):
-            results["details"]["forbidden"] = f"Forbidden imports: {executor.forbidden_imports[:5]}..."
-        
+        if hasattr(executor, "forbidden_imports"):
+            results["details"]["forbidden"] = (
+                f"Forbidden imports: {executor.forbidden_imports[:5]}..."
+            )
+
         # Test safe code
         safe_result = executor("x = 2 + 2\nresult = x")
         results["details"]["safe_code"] = f"✅ Safe code executed: result={safe_result}"
-        
+
         # Test blocked operations
         blocked_tests = [
             ("import os", "os import"),
             ("import subprocess", "subprocess import"),
             ("open('/etc/passwd')", "file open"),
         ]
-        
+
         for code, desc in blocked_tests:
             try:
                 executor(code)
                 results["details"][f"block_{desc}"] = f"⚠️ {desc} was NOT blocked!"
             except Exception as e:
-                results["details"][f"block_{desc}"] = f"✅ {desc} blocked: {type(e).__name__}"
+                results["details"][f"block_{desc}"] = (
+                    f"✅ {desc} blocked: {type(e).__name__}"
+                )
 
     except ImportError:
         results["details"]["import"] = "⚠️ LocalPythonExecutor not importable directly"
         # Try alternative import
         try:
-            from smolagents import CodeAgent
-            results["details"]["alternative"] = "✅ CodeAgent available (uses executor internally)"
+            results["details"]["alternative"] = (
+                "✅ CodeAgent available (uses executor internally)"
+            )
         except Exception as e:
             results["passed"] = False
             results["details"]["alternative"] = f"❌ {e}"
@@ -112,30 +121,38 @@ def test_pyodide_availability() -> dict[str, Any]:
     try:
         # Try direct import
         from smolagents import PyodideExecutor
+
         results["details"]["import"] = "✅ PyodideExecutor imported!"
-        
+
         # Try to instantiate
         try:
-            executor = PyodideExecutor()
+            _executor = PyodideExecutor()  # noqa: F841
             results["details"]["create"] = "✅ PyodideExecutor instantiated"
         except Exception as e:
-            results["details"]["create"] = f"⚠️ Import works but instantiation failed: {e}"
-            
+            results["details"]["create"] = (
+                f"⚠️ Import works but instantiation failed: {e}"
+            )
+
     except ImportError:
         results["details"]["import"] = "❌ PyodideExecutor not available in smolagents"
-        
+
         # Check if it's in a submodule
         try:
             import smolagents.executors
-            if hasattr(smolagents.executors, 'PyodideExecutor'):
+
+            if hasattr(smolagents.executors, "PyodideExecutor"):
                 results["details"]["submodule"] = "✅ Found in smolagents.executors"
             else:
-                results["details"]["submodule"] = "❌ Not in smolagents.executors either"
+                results["details"]["submodule"] = (
+                    "❌ Not in smolagents.executors either"
+                )
         except ImportError:
             results["details"]["submodule"] = "❌ smolagents.executors doesn't exist"
-        
+
         # Note: This is expected - Pyodide may not be in current smolagents
-        results["details"]["conclusion"] = "⚠️ Pyodide executor not available - use LocalPythonExecutor"
+        results["details"]["conclusion"] = (
+            "⚠️ Pyodide executor not available - use LocalPythonExecutor"
+        )
         results["passed"] = True  # This is informational, not a failure
 
     except Exception as e:
@@ -151,32 +168,38 @@ def test_agent_with_custom_executor() -> dict[str, Any]:
     try:
         from smolagents import CodeAgent, LiteLLMModel
         import inspect
-        
+
         # Check CodeAgent signature
         sig = inspect.signature(CodeAgent.__init__)
         params = list(sig.parameters.keys())
-        
+
         results["details"]["params"] = f"CodeAgent params: {params}"
-        
-        if 'executor' in params or 'code_executor' in params:
+
+        if "executor" in params or "code_executor" in params:
             results["details"]["executor_param"] = "✅ Executor parameter available"
         else:
-            results["details"]["executor_param"] = "⚠️ No explicit executor param - may use default"
-        
+            results["details"]["executor_param"] = (
+                "⚠️ No explicit executor param - may use default"
+            )
+
         # Try creating agent
         model = LiteLLMModel(
             model_id="ollama/qwen3:latest",
             api_base="http://localhost:11434",
         )
-        
+
         agent = CodeAgent(tools=[], model=model)
         results["details"]["agent_create"] = "✅ Agent created with default executor"
-        
+
         # Check what executor it's using
-        if hasattr(agent, 'executor'):
-            results["details"]["agent_executor"] = f"Uses: {type(agent.executor).__name__}"
-        elif hasattr(agent, 'python_executor'):
-            results["details"]["agent_executor"] = f"Uses: {type(agent.python_executor).__name__}"
+        if hasattr(agent, "executor"):
+            results["details"]["agent_executor"] = (
+                f"Uses: {type(agent.executor).__name__}"
+            )
+        elif hasattr(agent, "python_executor"):
+            results["details"]["agent_executor"] = (
+                f"Uses: {type(agent.python_executor).__name__}"
+            )
         else:
             results["details"]["agent_executor"] = "Executor attribute not exposed"
 
@@ -240,10 +263,9 @@ Based on this spike:
 RECOMMENDATION: Stick with LocalPythonExecutor (default).
                Don't pursue Pyodide unless security audit demands it.
 """)
-    
+
     return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

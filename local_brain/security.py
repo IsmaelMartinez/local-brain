@@ -1,10 +1,119 @@
 """Security utilities for Local Brain.
 
-Provides path jailing and other security features to prevent
-unauthorized access outside the project root.
+Provides path jailing, output truncation, timeouts, and other security
+features to prevent unauthorized access and resource exhaustion.
 """
 
+import signal
+from functools import wraps
 from pathlib import Path
+from typing import TypeVar, Callable, ParamSpec
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+# ============================================================================
+# Output Truncation
+# ============================================================================
+
+
+def truncate_output(
+    content: str,
+    max_lines: int = 100,
+    max_chars: int = 10000,
+) -> str:
+    """Clamp tool outputs with truncation metadata.
+
+    Args:
+        content: The content to potentially truncate.
+        max_lines: Maximum number of lines to allow (default: 100).
+        max_chars: Maximum number of characters to allow (default: 10000).
+
+    Returns:
+        The original content or truncated content with metadata.
+    """
+    lines = content.split("\n")
+    truncated = False
+    original_lines = len(lines)
+    original_chars = len(content)
+
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        truncated = True
+
+    result = "\n".join(lines)
+    if len(result) > max_chars:
+        result = result[:max_chars]
+        truncated = True
+
+    if truncated:
+        result += (
+            f"\n\n[TRUNCATED: {original_lines} lines, {original_chars} chars. "
+            f"Output limited to {max_lines} lines / {max_chars} chars. "
+            f"Use more specific queries.]"
+        )
+
+    return result
+
+
+# ============================================================================
+# Per-Call Timeouts
+# ============================================================================
+
+
+class ToolTimeoutError(Exception):
+    """Raised when a tool exceeds its time limit."""
+
+    pass
+
+
+def with_timeout(seconds: int = 30) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorator to add a timeout to a function.
+
+    Uses SIGALRM on Unix systems. Falls back to no timeout on Windows.
+
+    Args:
+        seconds: Maximum execution time in seconds (default: 30).
+
+    Returns:
+        Decorated function that raises ToolTimeoutError on timeout.
+
+    Example:
+        @with_timeout(10)
+        def slow_function():
+            ...
+    """
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Windows doesn't support SIGALRM
+            if not hasattr(signal, "SIGALRM"):
+                return func(*args, **kwargs)
+
+            def handler(signum: int, frame: object) -> None:
+                raise ToolTimeoutError(
+                    f"Tool '{func.__name__}' timed out after {seconds} seconds"
+                )
+
+            # Set the alarm
+            old_handler = signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            try:
+                return func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+
+        return wrapper
+
+    return decorator
+
+
+# ============================================================================
+# Path Jailing
+# ============================================================================
 
 
 # Global project root - set by CLI at startup
@@ -131,16 +240,19 @@ def is_sensitive_file(path: str | Path) -> bool:
     Returns:
         True if file matches sensitive patterns.
     """
+    import fnmatch
+
     p = Path(path)
     name = p.name
+    path_str = str(p)
 
-    # Check exact matches
+    # Check each pattern
     for pattern in BLOCKED_PATTERNS:
         if "*" in pattern:
-            # Simple glob matching
-            if name.endswith(pattern.replace("*", "")):
+            # Use fnmatch for glob patterns
+            if fnmatch.fnmatch(name, pattern):
                 return True
-        elif name == pattern or str(p).endswith(pattern):
+        elif name == pattern or path_str.endswith(pattern):
             return True
 
     return False

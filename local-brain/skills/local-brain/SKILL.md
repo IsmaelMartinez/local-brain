@@ -1,6 +1,7 @@
 ---
 name: local-brain
 description: Chat with local Ollama models that can explore your codebase using tools.
+version: 0.5.0
 ---
 
 # Local Brain
@@ -29,8 +30,47 @@ pipx install local-brain
 local-brain "prompt"                    # Ask anything (auto-selects best model)
 local-brain -v "prompt"                 # Show tool calls
 local-brain -m qwen2.5-coder:7b "prompt"  # Specific model
+local-brain --trace "prompt"            # Enable OTEL tracing
 local-brain --list-models               # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
+local-brain doctor                      # Check system health
+```
+
+## Health Check
+
+Verify your setup is working correctly:
+
+```bash
+local-brain doctor
+```
+
+This checks:
+- Ollama is installed and running
+- Recommended models are available
+- Tools execute correctly
+- Optional tracing dependencies
+
+Example output:
+```
+🔍 Local Brain Health Check
+
+Checking Ollama...
+  ✅ Ollama is installed (ollama version is 0.13.1)
+
+Checking Ollama server...
+  ✅ Ollama server is running (9 models)
+
+Checking recommended models...
+  ✅ Recommended models installed: qwen3:latest
+
+Checking tools...
+  ✅ Tools working (7 tools available)
+
+Checking optional features...
+  ✅ OTEL tracing available (--trace flag)
+
+========================================
+✅ All checks passed! Local Brain is ready.
 ```
 
 ## Examples
@@ -60,6 +100,24 @@ local-brain --list-models
 
 If no model is specified, Local Brain auto-selects the best installed model.
 
+## Observability
+
+Enable OpenTelemetry tracing with the `--trace` flag:
+
+```bash
+local-brain --trace "What files are here?"
+```
+
+This traces:
+- Agent execution steps
+- LLM calls with token counts
+- Tool invocations with inputs/outputs
+
+Install tracing dependencies:
+```bash
+pip install local-brain[tracing]
+```
+
 ## Security
 
 All file operations are **restricted to the project root** (path jailing):
@@ -68,18 +126,19 @@ All file operations are **restricted to the project root** (path jailing):
 - Shell commands execute within the project root
 - Sensitive files (`.env`, `.pem`, SSH keys) are blocked
 - Only read-only shell commands are allowed
+- All tool outputs are truncated (200 lines / 20K chars max)
+- Tool calls have timeouts (30 seconds default)
 
 ## Available Tools
 
 The model assumes these tools are available and uses them directly:
 
-- `read_file(path)` - Read file contents at a given `path`. Large files are truncated. **Restricted to project root.**
-- `list_directory(path, pattern)` - List files in `path` matching a glob `pattern` (e.g., `*.py`, `src/**/*.js`). Excludes hidden files and common ignored directories. Returns up to 100 files.
-- `file_info(path)` - Get file metadata (size, type, modified time) for a given `path`.
-- `git_diff(staged, file_path)` - Show code changes. Use `staged=True` for staged changes. Optionally provide a `file_path`. Large diffs are truncated.
-- `git_status()` - Check repo status.
-- `git_changed_files(staged, include_untracked)` - List changed files. Use `staged=True` for staged files, `include_untracked=True` to include untracked files.
-- `git_log(count, oneline)` - View commit history. `count` specifies number of commits (max 50), `oneline=True` for compact view.
-- `run_command(command)` - Run a safe, read-only shell `command`. Only specific commands are allowed (e.g., `ls`, `cat`, `grep`). **Executes within project root.**
+- `read_file(path)` - Read file contents at a given `path`. Large files are truncated (200 lines / 20K chars). Has 30s timeout. **Restricted to project root.**
+- `list_directory(path, pattern)` - List files in `path` matching a glob `pattern` (e.g., `*.py`, `src/**/*.js`). Excludes hidden files and common ignored directories. Returns up to 100 files. Has 30s timeout.
+- `file_info(path)` - Get file metadata (size, type, modified time) for a given `path`. Has 30s timeout.
+- `git_diff(staged, file_path)` - Show code changes. Use `staged=True` for staged changes. Optionally provide a `file_path`. Output is truncated.
+- `git_status()` - Check repo status. Output is truncated.
+- `git_changed_files(staged, include_untracked)` - List changed files. Use `staged=True` for staged files, `include_untracked=True` to include untracked files. Output is truncated.
+- `git_log(count, oneline)` - View commit history. `count` specifies number of commits (max 50), `oneline=True` for compact view. Output is truncated.
 
 All tools return human-readable output or error messages on failure.

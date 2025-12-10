@@ -1,10 +1,10 @@
 """Tests for the CLI module."""
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
 
-from local_brain.cli import main
+from local_brain.cli import main, doctor
 from local_brain import __version__
 
 
@@ -90,3 +90,93 @@ class TestCLI:
 
         assert result.exit_code == 1
         assert "not installed" in result.output
+
+    @patch("local_brain.tracing.setup_tracing")
+    @patch("local_brain.cli.check_model_available")
+    @patch("local_brain.cli.run_smolagent")
+    def test_trace_flag_enables_tracing(
+        self, mock_run_smolagent, mock_check_model, mock_setup_tracing
+    ):
+        """Test --trace flag enables OTEL tracing."""
+        mock_run_smolagent.return_value = "Response"
+        mock_check_model.return_value = True
+        mock_setup_tracing.return_value = True
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--trace", "Hello"])
+
+        assert result.exit_code == 0
+        mock_setup_tracing.assert_called_once()
+
+    @patch("local_brain.tracing.setup_tracing")
+    @patch("local_brain.cli.check_model_available")
+    @patch("local_brain.cli.run_smolagent")
+    def test_trace_flag_shows_warning_on_failure(
+        self, mock_run_smolagent, mock_check_model, mock_setup_tracing
+    ):
+        """Test --trace shows warning when tracing setup fails."""
+        mock_run_smolagent.return_value = "Response"
+        mock_check_model.return_value = True
+        mock_setup_tracing.return_value = False  # Tracing unavailable
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--trace", "Hello"])
+
+        assert result.exit_code == 0
+        assert "Tracing unavailable" in result.output
+
+
+class TestDoctorCommand:
+    """Tests for the doctor subcommand."""
+
+    def test_doctor_help(self):
+        """Test doctor --help shows command info."""
+        runner = CliRunner()
+        result = runner.invoke(doctor, ["--help"])
+
+        assert result.exit_code == 0
+        assert "Check system health" in result.output
+
+    @patch("local_brain.cli.list_installed_models")
+    @patch("local_brain.cli.subprocess.run")
+    def test_doctor_all_checks_pass(self, mock_subprocess, mock_list_models):
+        """Test doctor command when all checks pass."""
+        # Mock ollama --version
+        mock_subprocess.return_value = MagicMock(
+            returncode=0, stdout="ollama version 0.4.1", stderr=""
+        )
+
+        # Mock installed models
+        mock_model = MagicMock()
+        mock_model.model = "qwen3:latest"
+        mock_list_models.return_value = [mock_model]
+
+        runner = CliRunner()
+        result = runner.invoke(doctor)
+
+        assert "Health Check" in result.output
+        assert "Ollama" in result.output
+
+    @patch("local_brain.cli.subprocess.run")
+    def test_doctor_ollama_not_installed(self, mock_subprocess):
+        """Test doctor when ollama is not installed."""
+        mock_subprocess.side_effect = FileNotFoundError()
+
+        runner = CliRunner()
+        result = runner.invoke(doctor)
+
+        assert "Ollama is not installed" in result.output
+
+    @patch("local_brain.cli.list_installed_models")
+    @patch("local_brain.cli.subprocess.run")
+    def test_doctor_no_models(self, mock_subprocess, mock_list_models):
+        """Test doctor when no models are installed."""
+        mock_subprocess.return_value = MagicMock(
+            returncode=0, stdout="ollama version 0.4.1", stderr=""
+        )
+        mock_list_models.return_value = []
+
+        runner = CliRunner()
+        result = runner.invoke(doctor)
+
+        assert "No recommended models" in result.output or "0 models" in result.output

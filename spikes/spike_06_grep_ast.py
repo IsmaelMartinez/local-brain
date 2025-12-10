@@ -66,8 +66,11 @@ def test_grep_ast_import() -> dict[str, Any]:
     results: dict[str, Any] = {"passed": True, "details": {}}
 
     try:
-        from grep_ast import TreeContext, filename_to_lang
-        results["details"]["import"] = "✅ grep_ast imported (TreeContext, filename_to_lang)"
+        from grep_ast import TreeContext, filename_to_lang  # noqa: F401
+
+        results["details"]["import"] = (
+            "✅ grep_ast imported (TreeContext, filename_to_lang)"
+        )
     except ImportError as e:
         results["passed"] = False
         results["details"]["import"] = f"❌ Failed: {e}"
@@ -95,12 +98,18 @@ def test_language_detection() -> dict[str, Any]:
         passed = 0
         for filename, expected in test_cases:
             detected = filename_to_lang(filename)
-            if detected == expected or (expected and detected and expected in detected.lower()):
+            if detected == expected or (
+                expected and detected and expected in detected.lower()
+            ):
                 passed += 1
             else:
-                results["details"][f"lang_{filename}"] = f"⚠️ Expected {expected}, got {detected}"
+                results["details"][f"lang_{filename}"] = (
+                    f"⚠️ Expected {expected}, got {detected}"
+                )
 
-        results["details"]["detection"] = f"✅ Language detection: {passed}/{len(test_cases)} correct"
+        results["details"]["detection"] = (
+            f"✅ Language detection: {passed}/{len(test_cases)} correct"
+        )
 
     except Exception as e:
         results["passed"] = False
@@ -117,12 +126,12 @@ def test_tree_context_creation() -> dict[str, Any]:
         from grep_ast import TreeContext
 
         # Create temp file with sample code
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(SAMPLE_CODE)
             temp_path = f.name
 
         try:
-            tc = TreeContext(temp_path, code=SAMPLE_CODE)
+            _tc = TreeContext(temp_path, code=SAMPLE_CODE)  # noqa: F841
             results["details"]["creation"] = "✅ TreeContext created successfully"
         finally:
             Path(temp_path).unlink()
@@ -142,29 +151,35 @@ def test_grep_search() -> dict[str, Any]:
         from grep_ast import TreeContext
 
         # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(SAMPLE_CODE)
             temp_path = f.name
 
         try:
             tc = TreeContext(temp_path, code=SAMPLE_CODE)
-            
+
             # Search for "user_id"
             search_result = tc.grep("user_id", ignore_case=False)
-            
+
             if search_result and "user_id" in search_result:
                 # Check if context is included (should show function/class context)
                 has_context = "def " in search_result or "class " in search_result
-                results["details"]["grep_basic"] = f"✅ Found 'user_id' with context: {has_context}"
-                results["details"]["grep_sample"] = f"   Sample: {search_result[:200]}..."
+                results["details"]["grep_basic"] = (
+                    f"✅ Found 'user_id' with context: {has_context}"
+                )
+                results["details"]["grep_sample"] = (
+                    f"   Sample: {search_result[:200]}..."
+                )
             else:
                 results["details"]["grep_basic"] = "⚠️ Search returned empty or no match"
 
-            # Search for "email" 
+            # Search for "email"
             email_result = tc.grep("email", ignore_case=False)
             if email_result:
-                results["details"]["grep_multi"] = f"✅ Found 'email' in multiple contexts"
-            
+                results["details"]["grep_multi"] = (
+                    "✅ Found 'email' in multiple contexts"
+                )
+
         finally:
             Path(temp_path).unlink()
 
@@ -188,18 +203,18 @@ def test_tool_integration() -> dict[str, Any]:
             lang = filename_to_lang(file_path)
             if not lang:
                 return f"Unknown language for {file_path}"
-            
+
             code = P(file_path).read_text()
             tc = TreeContext(file_path, code=code)
             result = tc.grep(pattern, ignore_case=True)
-            
+
             if not result:
                 return f"No matches for '{pattern}' in {file_path}"
-            
+
             return result
 
         # Test with temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(SAMPLE_CODE)
             temp_path = f.name
 
@@ -207,7 +222,9 @@ def test_tool_integration() -> dict[str, Any]:
             result = search_code_ast("cache", temp_path)
             if "cache" in result:
                 results["details"]["tool_sim"] = "✅ Tool simulation works"
-                results["details"]["tool_output"] = f"   Output length: {len(result)} chars"
+                results["details"]["tool_output"] = (
+                    f"   Output length: {len(result)} chars"
+                )
             else:
                 results["details"]["tool_sim"] = "⚠️ Tool returned unexpected result"
         finally:
@@ -253,7 +270,9 @@ def main() -> int:
     print("\n" + "=" * 60)
     if all_passed:
         print("✅ SPIKE 6 PASSED: grep-ast works for AST-aware search!")
-        print("\nRecommendation: Use grep-ast as the primary search_code implementation")
+        print(
+            "\nRecommendation: Use grep-ast as the primary search_code implementation"
+        )
         return 0
     else:
         print("❌ SPIKE 6 FAILED: See details above")
@@ -262,4 +281,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

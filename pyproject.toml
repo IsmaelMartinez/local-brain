@@ -43,6 +43,10 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+tracing = [
+    "openinference-instrumentation-smolagents>=0.1.20",
+    "opentelemetry-sdk>=1.39.0",
+]
 
 [build-system]
 requires = ["hatchling"]
