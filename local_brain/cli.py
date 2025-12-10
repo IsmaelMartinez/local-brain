@@ -171,6 +171,7 @@ def doctor():
 
     # Check 2: Ollama server is running (can list models)
     click.echo("\nChecking Ollama server...")
+    models = None
     try:
         models = list_installed_models()
         if models is not None:
@@ -187,14 +188,16 @@ def doctor():
     # Check 3: Recommended models installed
     click.echo("\nChecking recommended models...")
     installed = set()
-    try:
-        for m in list_installed_models():
-            if hasattr(m, "model"):
-                installed.add(m.model)
-            elif isinstance(m, dict):
-                installed.add(m.get("name", "") or m.get("model", ""))
-    except Exception:
-        pass
+    # Reuse models from previous check instead of calling list_installed_models() again
+    if models:
+        try:
+            for m in models:
+                if hasattr(m, "model"):
+                    installed.add(m.model)
+                elif isinstance(m, dict):
+                    installed.add(m.get("name", "") or m.get("model", ""))
+        except (TypeError, AttributeError) as e:
+            click.echo(f"  ⚠️  Error parsing model list: {e}", err=True)
 
     tier1_models = [name for name, info in RECOMMENDED_MODELS.items() if info.tier == 1]
     tier1_installed = [m for m in tier1_models if m in installed]
