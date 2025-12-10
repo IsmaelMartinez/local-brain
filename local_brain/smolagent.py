@@ -452,6 +452,8 @@ SUPPORTED_LANGUAGES = {
 
 def _get_docstring(node, code_bytes: bytes) -> str | None:
     """Extract docstring from a class/function node."""
+    import ast
+
     # Find the body/block - could be named "body" or be a "block" child
     body = node.child_by_field_name("body")
     if body is None:
@@ -461,18 +463,27 @@ def _get_docstring(node, code_bytes: bytes) -> str | None:
                 body = child
                 break
 
-    if body and body.children:
-        # First child of body could be expression_statement (Python) or string directly
-        first = body.children[0]
-        if first.type == "expression_statement":
-            string = first.children[0] if first.children else None
-            if string and string.type == "string":
-                doc = string.text.decode().strip('"""').strip("'''").strip()
-                return doc[:80] + "..." if len(doc) > 80 else doc
-        elif first.type == "string":
-            # Direct string node (docstring)
-            doc = first.text.decode().strip('"""').strip("'''").strip()
+    if not (body and body.children):
+        return None
+
+    # First child of body could be expression_statement (Python) or string directly
+    first = body.children[0]
+    string_node = None
+    if first.type == "expression_statement" and first.children:
+        string_node = first.children[0]
+    elif first.type == "string":
+        string_node = first
+
+    if string_node and string_node.type == "string":
+        try:
+            # Use ast.literal_eval for robust parsing of string literals.
+            # It handles all quote types, prefixes (r, f, u), and escapes.
+            doc = ast.literal_eval(string_node.text.decode())
             return doc[:80] + "..." if len(doc) > 80 else doc
+        except (ValueError, SyntaxError):
+            # Fallback for any unexpected format
+            return None
+
     return None
 
 
@@ -490,9 +501,11 @@ def _extract_python_definitions(tree, code_bytes: bytes) -> list[str]:
                 doc = _get_docstring(node, code_bytes)
                 if doc:
                     output_lines.append(f'{prefix}  "{doc}"')
-                # Process methods
-                for child in node.children:
-                    walk(child, indent + 1)
+                # Process methods - get body directly instead of iterating all children
+                body = node.child_by_field_name("body")
+                if body:
+                    for child in body.children:
+                        walk(child, indent + 1)
                 return  # Don't recurse again
 
         elif node.type == "function_definition":
@@ -558,7 +571,7 @@ def list_definitions(file_path: str) -> str:
         code_bytes = content.encode()
 
         try:
-            parser = ts_langs.get_parser(lang)
+            parser = ts_langs.get_parser(lang)  # type: ignore[arg-type]
             tree = parser.parse(code_bytes)
         except Exception as e:
             return f"Error parsing {file_path}: {e}"
