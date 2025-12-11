@@ -1,6 +1,6 @@
 {
   "name": "local-brain",
-  "version": "0.3.5",
+  "version": "0.6.0",
   "description": "Delegate codebase exploration to local Ollama models with automatic tool calling",
   "author": {
     "name": "Ismael Martinez Ramos",
@@ -9,5 +9,11 @@
   "homepage": "https://github.com/IsmaelMartinez/local-brain",
   "repository": "https://github.com/IsmaelMartinez/local-brain",
   "license": "MIT",
-  "keywords": ["ollama", "llm", "code-review", "tool-calling", "local"]
+  "keywords": [
+    "ollama",
+    "llm",
+    "code-review",
+    "tool-calling",
+    "local"
+  ]
 }

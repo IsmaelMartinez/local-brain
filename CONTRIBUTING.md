@@ -75,6 +75,19 @@ ALL_TOOLS = [
 - Return strings for tool output
 - Handle errors gracefully (return error message, don't raise)
 
+## Versioning
+
+Version is stored in `local_brain/__init__.py` as the single source of truth.
+
+When bumping the version:
+
+1. Update `__version__` in `local_brain/__init__.py`
+2. Run `python3 scripts/sync_version.py` to sync to all plugin.json files
+
+The sync script updates:
+- `local-brain/plugin.json` (Claude Code plugin)
+- `local-brain/.claude-plugin/plugin.json` (marketplace)
+
 ## Pull Requests
 
 1. Fork & branch
