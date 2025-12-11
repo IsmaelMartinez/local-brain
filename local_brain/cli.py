@@ -143,9 +143,6 @@ def main(
 @click.option("--verbose", "-v", is_flag=True, help="Show execution details")
 @click.option("--trace", "-t", is_flag=True, help="Enable OTEL tracing")
 @click.option(
-    "--share", is_flag=True, help="Create a public shareable link (via Gradio)"
-)
-@click.option(
     "--port", "-p", default=7860, type=int, help="Port to run the server on"
 )
 def ui(
