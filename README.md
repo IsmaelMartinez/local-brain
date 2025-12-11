@@ -181,7 +181,6 @@ pip install local-brain[gradio]
 local-brain ui
 
 # With options
-local-brain ui --share              # Create public shareable link
 local-brain ui -m qwen2.5-coder:7b  # Use specific model
 local-brain ui --port 8080          # Custom port (default: 7860)
 local-brain ui -v                   # Verbose output
