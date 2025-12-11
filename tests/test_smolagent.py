@@ -117,22 +117,22 @@ class TestSmolagentGitTools:
 
 
 class TestSmolagentAgent:
-    """Tests for the smolagent CodeAgent."""
+    """Tests for the smolagent ToolCallingAgent."""
 
     @patch("local_brain.smolagent.LiteLLMModel")
-    @patch("local_brain.smolagent.CodeAgent")
-    def test_create_agent(self, mock_code_agent, mock_model):
+    @patch("local_brain.smolagent.ToolCallingAgent")
+    def test_create_agent(self, mock_agent_class, mock_model):
         """Test agent creation."""
         mock_model_instance = MagicMock()
         mock_model.return_value = mock_model_instance
 
         mock_agent_instance = MagicMock()
-        mock_code_agent.return_value = mock_agent_instance
+        mock_agent_class.return_value = mock_agent_instance
 
         agent = create_agent("qwen3:latest", verbose=True)
 
         mock_model.assert_called_once()
-        mock_code_agent.assert_called_once()
+        mock_agent_class.assert_called_once()
         assert agent == mock_agent_instance
 
     @patch("local_brain.smolagent.create_agent")
