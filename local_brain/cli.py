@@ -160,7 +160,6 @@ def ui(
 
     \b
         local-brain ui
-        local-brain ui --share
         local-brain ui -m qwen2.5-coder:7b
         local-brain ui --port 8080
     """
