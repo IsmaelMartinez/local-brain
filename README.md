@@ -97,7 +97,6 @@ local-brain -m qwen2.5-coder:7b "prompt"   # Specific model
 local-brain --list-models                  # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
 local-brain ui                             # Launch web-based chat interface
-local-brain ui --share                     # Create a public shareable link
 ```
 
 ### Model Discovery
