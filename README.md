@@ -1,3 +1,7 @@
+> [!WARNING]
+> **This is early experimental work — use it at your own risk!**
+> The API and features may change without notice.
+
 # Local Brain — Claude Code Plugin Marketplace
 
 A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extends Claude with local capabilities. The first skill lets Claude delegate codebase exploration to local Ollama models.
