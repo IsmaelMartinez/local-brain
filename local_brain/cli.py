@@ -150,7 +150,6 @@ def ui(
     root: str | None,
     verbose: bool,
     trace: bool,
-    share: bool,
     port: int,
 ):
     """Launch a web-based chat interface using Gradio.
