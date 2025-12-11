@@ -10,6 +10,7 @@ from .models import (
     select_model_for_task,
     get_available_models_summary,
     check_model_available,
+    is_model_incompatible,
     list_installed_models,
     DEFAULT_MODEL,
     RECOMMENDED_MODELS,
@@ -64,9 +65,12 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
 
-    # Handle "doctor" as a special case - it's a subcommand but Click sees it as prompt
+    # Handle subcommands as special cases - Click sees them as prompt due to positional arg
     if prompt == "doctor":
         ctx.invoke(doctor)
+        return
+    if prompt == "ui":
+        ctx.invoke(ui)
         return
 
     if version:
@@ -104,9 +108,19 @@ def main(
     selected_model, was_fallback = select_model_for_task(model)
 
     if was_fallback:
-        click.echo(
-            f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.", err=True
-        )
+        # Check if original model was incompatible
+        if model and is_model_incompatible(model):
+            click.echo(
+                f"❌ Model '{model}' is incompatible (tool calling broken).\n"
+                f"   Using '{selected_model}' instead.\n"
+                f"   See docs/model-performance-comparison.md for details.",
+                err=True,
+            )
+        else:
+            click.echo(
+                f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
+                err=True,
+            )
 
     # Check if selected model is available
     if not check_model_available(selected_model):
@@ -198,9 +212,19 @@ def ui(
     selected_model, was_fallback = select_model_for_task(model)
 
     if was_fallback:
-        click.echo(
-            f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.", err=True
-        )
+        # Check if original model was incompatible
+        if model and is_model_incompatible(model):
+            click.echo(
+                f"❌ Model '{model}' is incompatible (tool calling broken).\n"
+                f"   Using '{selected_model}' instead.\n"
+                f"   See docs/model-performance-comparison.md for details.",
+                err=True,
+            )
+        else:
+            click.echo(
+                f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
+                err=True,
+            )
 
     # Check if selected model is available
     if not check_model_available(selected_model):
