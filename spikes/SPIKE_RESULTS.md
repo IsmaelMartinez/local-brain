@@ -15,7 +15,7 @@
 | 7: tree-sitter | ✅ **PASSED** | ✅ Implemented in v0.6.0 (`list_definitions` tool) |
 | 8: Pyodide Sandbox | ⚠️ **DEFERRED** | N/A - LocalPythonExecutor is sufficient |
 
-> **Note:** Spike files 6, 7, and 8 have been deleted after successful implementation.
+> **Note:** Spikes 6, 7, and 8 are kept for reference even after implementation.
 
 ---
 

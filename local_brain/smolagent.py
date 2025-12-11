@@ -17,7 +17,7 @@ warnings.filterwarnings(
     module="smolagents.tools",
 )
 
-from smolagents import CodeAgent, LiteLLMModel, tool  # noqa: E402
+from smolagents import ToolCallingAgent, LiteLLMModel, tool  # noqa: E402
 
 from .security import (  # noqa: E402
     safe_path,
@@ -643,15 +643,15 @@ ALL_TOOLS = [
 # ============================================================================
 
 
-def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
-    """Create a Smolagents CodeAgent with the configured model.
+def create_agent(model_id: str, verbose: bool = False) -> ToolCallingAgent:
+    """Create a Smolagents ToolCallingAgent with the configured model.
 
     Args:
         model_id: Ollama model ID (e.g., "qwen3:latest")
         verbose: Enable verbose output
 
     Returns:
-        Configured CodeAgent instance
+        Configured ToolCallingAgent instance
     """
     model = LiteLLMModel(
         model_id=f"ollama/{model_id}",
@@ -660,7 +660,7 @@ def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
 
     verbosity = 2 if verbose else 0
 
-    return CodeAgent(
+    return ToolCallingAgent(
         tools=ALL_TOOLS,
         model=model,
         verbosity_level=verbosity,
@@ -672,7 +672,7 @@ def run_smolagent(
     model: str = "qwen3:latest",
     verbose: bool = False,
 ) -> str:
-    """Run a task using the Smolagents CodeAgent.
+    """Run a task using the Smolagents ToolCallingAgent.
 
     Args:
         prompt: User's request
