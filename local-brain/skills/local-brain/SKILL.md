@@ -1,7 +1,7 @@
 ---
 name: local-brain
 description: Chat with local Ollama models that can explore your codebase using tools.
-version: 0.5.0
+version: 0.6.0
 ---
 
 # Local Brain
@@ -64,7 +64,7 @@ Checking recommended models...
   ✅ Recommended models installed: qwen3:latest
 
 Checking tools...
-  ✅ Tools working (7 tools available)
+  ✅ Tools working (9 tools available)
 
 Checking optional features...
   ✅ OTEL tracing available (--trace flag)
@@ -81,6 +81,8 @@ local-brain "Review the git changes"
 local-brain "Generate a commit message"
 local-brain "Explain how src/main.py works"
 local-brain "Find all TODO comments"
+local-brain "What functions are defined in utils.py?"
+local-brain "Search for 'validate' in the auth module"
 ```
 
 ## Model Discovery
@@ -133,12 +135,19 @@ All file operations are **restricted to the project root** (path jailing):
 
 The model assumes these tools are available and uses them directly:
 
+### File Tools
 - `read_file(path)` - Read file contents at a given `path`. Large files are truncated (200 lines / 20K chars). Has 30s timeout. **Restricted to project root.**
 - `list_directory(path, pattern)` - List files in `path` matching a glob `pattern` (e.g., `*.py`, `src/**/*.js`). Excludes hidden files and common ignored directories. Returns up to 100 files. Has 30s timeout.
 - `file_info(path)` - Get file metadata (size, type, modified time) for a given `path`. Has 30s timeout.
+
+### Code Navigation Tools (New in v0.6.0)
+- `search_code(pattern, file_path, ignore_case)` - **AST-aware code search**. Unlike simple grep, shows intelligent context around matches (function/class boundaries). Supports Python, JavaScript, TypeScript, Go, Rust, Ruby, Java, C/C++.
+- `list_definitions(file_path)` - **Extract class/function definitions** from a source file. Shows signatures and docstrings without full implementation code. Great for understanding file structure quickly.
+
+### Git Tools
 - `git_diff(staged, file_path)` - Show code changes. Use `staged=True` for staged changes. Optionally provide a `file_path`. Output is truncated.
 - `git_status()` - Check repo status. Output is truncated.
 - `git_changed_files(staged, include_untracked)` - List changed files. Use `staged=True` for staged files, `include_untracked=True` to include untracked files. Output is truncated.
-- `git_log(count, oneline)` - View commit history. `count` specifies number of commits (max 50), `oneline=True` for compact view. Output is truncated.
+- `git_log(count)` - View commit history. `count` specifies number of commits (max 50). Output is truncated.
 
 All tools return human-readable output or error messages on failure.

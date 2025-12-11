@@ -2,17 +2,17 @@
 
 **Date:** December 10, 2025  
 **Status:** Research Document  
-**Version:** 2.1 (Phase A Complete)
+**Version:** 2.2 (Phase B Complete)
 
 ---
 
 ## Executive Summary
 
-Local Brain is a Claude Code plugin that delegates codebase exploration to local Ollama models via Smolagents. After successful Phase 2 validation, the focus is on **hardening** and **better navigation tools**.
+Local Brain is a Claude Code plugin that delegates codebase exploration to local Ollama models via Smolagents. After successful Phase A (hardening) and Phase B (navigation), the focus is now on **observation and feedback**.
 
 ### Key Findings
 
-1. **Solid Foundation**: Clean, minimal architecture (~500 lines)
+1. **Solid Foundation**: Clean, minimal architecture (~600 lines)
 2. **Right Framework**: Smolagents provides security and flexibility
 3. **Built-in Observability**: Smolagents has native OTEL support — use it
 4. **Verified Tools**: `grep-ast`, `tree-sitter`, `detect-secrets` are production-ready
@@ -22,8 +22,8 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 | Phase | Goal | Timeline | Status |
 |-------|------|----------|--------|
 | **A: Harden** | Safety guardrails, observability | Week 1-2 | ✅ **COMPLETE** (v0.5.0) |
-| **B: Navigate** | Better code search & structure tools | Week 3-5 | 🔜 Next |
-| **C: Observe** | Ship, gather feedback, iterate | Week 6+ | Pending |
+| **B: Navigate** | Better code search & structure tools | Week 3-5 | ✅ **COMPLETE** (v0.6.0) |
+| **C: Observe** | Ship, gather feedback, iterate | Week 6+ | 🔜 Next |
 
 ---
 
@@ -63,6 +63,8 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 | `git_status` | Branch/changes summary (truncated) |
 | `git_log` | Commit history (truncated) |
 | `git_changed_files` | Modified file list (truncated) |
+| `search_code` | **NEW v0.6.0** - AST-aware code search with intelligent context |
+| `list_definitions` | **NEW v0.6.0** - Extract class/function signatures from files |
 
 ### Gaps Addressed (v0.5.0)
 
@@ -73,12 +75,13 @@ Local Brain is a Claude Code plugin that delegates codebase exploration to local
 | **Health checks** | None | ✅ `local-brain doctor` command |
 | **Test coverage** | Basic | ✅ 60 tests (path-jailing, truncation, timeouts) |
 
-### Remaining Gaps (Phase B)
+### Gaps Addressed (v0.6.0)
 
-| Gap | Current | Target |
-|-----|---------|--------|
-| **Code search** | Basic glob | AST-aware (grep-ast) |
-| **Navigation** | Read whole file | Extract definitions only |
+| Gap | Before | After (v0.6.0) |
+|-----|--------|----------------|
+| **Code search** | Basic glob | ✅ AST-aware search via `search_code` (grep-ast) |
+| **Navigation** | Read whole file | ✅ Extract definitions via `list_definitions` (tree-sitter) |
+| **Test coverage** | 60 tests | ✅ 75 tests (navigation tools tested) |
 
 ---
 
@@ -172,96 +175,61 @@ Checking optional features...
 
 ---
 
-### Phase B: Navigate (Week 3-5)
+### Phase B: Navigate (Week 3-5) ✅ COMPLETE
 
-#### B.1 AST-Aware Code Search (Spike #6 Validated ✅)
+#### B.1 AST-Aware Code Search ✅
 
-**API Note:** `tc.grep(pattern, ignore_case)` — NOT `color=False`
+Implemented in `smolagent.py` using `grep-ast`:
 
 ```python
-from grep_ast import TreeContext, filename_to_lang
-
 @tool
 def search_code(pattern: str, file_path: str, ignore_case: bool = True) -> str:
-    """Search code with AST awareness - shows context intelligently.
-    
-    Args:
-        pattern: Text pattern to search for
-        file_path: File to search in
-        ignore_case: Whether to ignore case in search
-    
-    Returns:
-        Matches with AST-aware context (function/class boundaries)
-    """
-    lang = filename_to_lang(file_path)
-    if not lang:
-        return _simple_grep(pattern, file_path)
-    
-    tc = TreeContext(file_path, code=Path(file_path).read_text())
-    return tc.grep(pattern, ignore_case=ignore_case)
+    """Search code with AST awareness - shows intelligent context."""
+    # Uses TreeContext.grep() to find line numbers
+    # Then add_lines_of_interest() + add_context() + format()
+    # Falls back to simple grep for unsupported languages
 ```
 
-#### B.2 List Definitions (Spike #7 Validated ✅)
+**Key Learning:** `tc.grep()` returns a *set of line numbers*, not formatted output.
+Must call `tc.add_lines_of_interest(lines)`, `tc.add_context()`, then `tc.format()`.
 
-**Python 3.13 Compatibility:** Use `tree-sitter-language-pack` (not `tree-sitter-languages`)
+#### B.2 List Definitions ✅
+
+Implemented in `smolagent.py` using `tree-sitter-language-pack`:
 
 ```python
-# Compatibility import for Python 3.13
-try:
-    import tree_sitter_language_pack as ts_langs
-except ImportError:
-    import tree_sitter_languages as ts_langs
-
 @tool
 def list_definitions(file_path: str) -> str:
-    """Extract class/function definitions without reading full content.
-    
-    Args:
-        file_path: Path to the source file
-    
-    Returns:
-        List of classes/functions with signatures and docstrings
-    """
-    code = Path(file_path).read_text()
-    parser = ts_langs.get_parser("python")
-    tree = parser.parse(code.encode())
-    
-    # Walk AST and extract definitions
-    # See spike_07_tree_sitter.py for full implementation
+    """Extract class/function definitions with signatures and docstrings."""
+    # Python 3.13: uses tree-sitter-language-pack (not tree-sitter-languages)
+    # Walks AST to extract class/function nodes
+    # Includes signatures and docstrings
 ```
 
 **Sample Output:**
 ```
 class UserService:
+  "Service for managing users."
   def __init__(self, db):
   def get_user(self, user_id: int) -> dict:
+    "Get user by ID."
   def create_user(self, name: str, email: str) -> int:
+    "Create a new user."
 def validate_email(email: str) -> bool:
+  "Check if email is valid."
 ```
 
-#### B.3 Code Statistics (pygount)
+#### B.3 Code Statistics (Deferred)
 
-```python
-@tool
-def code_stats(path: str = ".") -> str:
-    """Get code statistics for the project.
-    
-    Args:
-        path: Directory to analyze
-    
-    Returns:
-        Lines of code by language
-    """
-    # Wrap pygount for LOC counts
-```
+`code_stats` using pygount deferred - low priority (P2). Can be added later if needed.
 
-#### B.4 Tasks
+#### B.4 Tasks ✅
 
-| Task | Effort | Priority |
-|------|--------|----------|
-| Add `search_code` (grep-ast) | 1-2 days | P0 |
-| Add `list_definitions` (tree-sitter) | 2 days | P0 |
-| Add `code_stats` (pygount) | 0.5 day | P2 |
+| Task | Effort | Priority | Status |
+|------|--------|----------|--------|
+| Add `search_code` (grep-ast) | 1-2 days | P0 | ✅ Done |
+| Add `list_definitions` (tree-sitter) | 2 days | P0 | ✅ Done |
+| Add `code_stats` (pygount) | 0.5 day | P2 | ⏸️ Deferred |
 
 ---
 
@@ -326,6 +294,34 @@ For each new tool:
 ---
 
 ## 7. Changelog
+
+### v0.6.0 (December 10, 2025) - Phase B: Navigate
+
+**New Features:**
+- `search_code` tool: AST-aware code search using grep-ast
+  - Shows intelligent context around matches (function/class boundaries)
+  - Supports Python, JavaScript, TypeScript, Go, Rust, Ruby, Java, C/C++
+  - Falls back to simple grep for unsupported languages
+- `list_definitions` tool: Extract class/function definitions using tree-sitter
+  - Shows signatures and docstrings without full implementation
+  - Great for understanding file structure quickly
+  - Python 3.13 compatible via `tree-sitter-language-pack`
+
+**Improvements:**
+- 9 tools total (was 7)
+- Better code navigation without reading entire files
+
+**Testing:**
+- 75 tests total (was 60)
+- Comprehensive tests for new navigation tools
+- Security tests for new tools (path-jailing, sensitive files)
+
+**Dependencies:**
+- New: `grep-ast>=0.9.0`
+- New: `tree-sitter>=0.25.0`
+- New: `tree-sitter-language-pack>=0.13.0`
+
+---
 
 ### v0.5.0 (December 10, 2025) - Phase A: Harden
 

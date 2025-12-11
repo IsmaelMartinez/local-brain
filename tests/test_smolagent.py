@@ -9,8 +9,10 @@ from local_brain.smolagent import (
     git_log,
     git_status,
     list_directory,
+    list_definitions,
     read_file,
     run_smolagent,
+    search_code,
 )
 
 
@@ -115,22 +117,22 @@ class TestSmolagentGitTools:
 
 
 class TestSmolagentAgent:
-    """Tests for the smolagent CodeAgent."""
+    """Tests for the smolagent ToolCallingAgent."""
 
     @patch("local_brain.smolagent.LiteLLMModel")
-    @patch("local_brain.smolagent.CodeAgent")
-    def test_create_agent(self, mock_code_agent, mock_model):
+    @patch("local_brain.smolagent.ToolCallingAgent")
+    def test_create_agent(self, mock_agent_class, mock_model):
         """Test agent creation."""
         mock_model_instance = MagicMock()
         mock_model.return_value = mock_model_instance
 
         mock_agent_instance = MagicMock()
-        mock_code_agent.return_value = mock_agent_instance
+        mock_agent_class.return_value = mock_agent_instance
 
         agent = create_agent("qwen3:latest", verbose=True)
 
         mock_model.assert_called_once()
-        mock_code_agent.assert_called_once()
+        mock_agent_class.assert_called_once()
         assert agent == mock_agent_instance
 
     @patch("local_brain.smolagent.create_agent")
@@ -154,3 +156,214 @@ class TestSmolagentAgent:
 
         assert "Error" in result
         assert "Connection refused" in result
+
+
+class TestSearchCodeTool:
+    """Tests for the search_code AST-aware search tool."""
+
+    SAMPLE_PYTHON_CODE = '''"""Sample module for testing."""
+
+class UserService:
+    """Service for managing users."""
+    
+    def __init__(self, db):
+        self.db = db
+        self.cache = {}
+    
+    def get_user(self, user_id: int) -> dict:
+        """Get user by ID."""
+        if user_id in self.cache:
+            return self.cache[user_id]
+        return self.db.query(user_id)
+    
+    def create_user(self, name: str, email: str) -> int:
+        """Create a new user."""
+        user_id = self.db.insert({"name": name, "email": email})
+        return user_id
+
+
+def validate_email(email: str) -> bool:
+    """Check if email is valid."""
+    return "@" in email and "." in email
+'''
+
+    def test_search_code_finds_pattern(self, tmp_path):
+        """Test that search_code finds patterns in files."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "test_service.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = search_code("user_id", str(test_file))
+        assert "user_id" in result
+        # Should include context (AST-aware)
+        assert "def " in result or "class " in result
+
+    def test_search_code_case_insensitive(self, tmp_path):
+        """Test case insensitive search."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "test.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = search_code("USERSERVICE", str(test_file), ignore_case=True)
+        assert "UserService" in result
+
+    def test_search_code_no_matches(self, tmp_path):
+        """Test search_code with no matches."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "test.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = search_code("nonexistent_pattern_xyz", str(test_file))
+        assert "No matches" in result
+
+    def test_search_code_file_not_found(self, tmp_path):
+        """Test search_code with non-existent file."""
+        set_project_root(tmp_path)
+
+        result = search_code("pattern", "nonexistent.py")
+        assert "Error" in result
+        assert "not found" in result
+
+    def test_search_code_outside_root(self, tmp_path):
+        """Test search_code blocks files outside project root."""
+        set_project_root(tmp_path)
+
+        result = search_code("pattern", "/etc/passwd")
+        assert "Error" in result
+        assert "outside project root" in result
+
+    def test_search_code_sensitive_file(self, tmp_path):
+        """Test search_code blocks sensitive files."""
+        set_project_root(tmp_path)
+
+        env_file = tmp_path / ".env"
+        env_file.write_text("SECRET=value")
+
+        result = search_code("SECRET", str(env_file))
+        assert "Error" in result
+        assert "sensitive" in result.lower() or "blocked" in result.lower()
+
+    def test_search_code_unsupported_language(self, tmp_path):
+        """Test search_code falls back to simple grep for unsupported languages."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "config.unknown"
+        test_file.write_text("key=value\nkey2=value2")
+
+        result = search_code("key", str(test_file))
+        # Should still find matches via simple grep fallback
+        assert "key" in result
+
+
+class TestListDefinitionsTool:
+    """Tests for the list_definitions AST tool."""
+
+    SAMPLE_PYTHON_CODE = '''"""Sample module for testing."""
+
+from typing import Optional
+
+CONSTANT = 42
+
+
+class UserService:
+    """Service for managing users."""
+    
+    def __init__(self, db):
+        self.db = db
+    
+    def get_user(self, user_id: int) -> dict:
+        """Get user by ID."""
+        return self.db.query(user_id)
+    
+    def create_user(self, name: str, email: str) -> int:
+        """Create a new user."""
+        return self.db.insert({"name": name, "email": email})
+
+
+def validate_email(email: str) -> bool:
+    """Check if email is valid."""
+    return "@" in email
+'''
+
+    def test_list_definitions_extracts_class(self, tmp_path):
+        """Test that list_definitions extracts class definitions."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "service.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = list_definitions(str(test_file))
+        assert "class UserService:" in result
+
+    def test_list_definitions_extracts_functions(self, tmp_path):
+        """Test that list_definitions extracts function definitions."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "service.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = list_definitions(str(test_file))
+        assert "def validate_email" in result
+        assert "def get_user" in result
+        assert "def create_user" in result
+
+    def test_list_definitions_includes_docstrings(self, tmp_path):
+        """Test that list_definitions includes docstrings."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "service.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = list_definitions(str(test_file))
+        assert "Service for managing users" in result
+
+    def test_list_definitions_includes_type_hints(self, tmp_path):
+        """Test that list_definitions includes type hints."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "service.py"
+        test_file.write_text(self.SAMPLE_PYTHON_CODE)
+
+        result = list_definitions(str(test_file))
+        assert "-> dict" in result or "dict:" in result
+        assert "-> bool" in result or "bool:" in result
+
+    def test_list_definitions_file_not_found(self, tmp_path):
+        """Test list_definitions with non-existent file."""
+        set_project_root(tmp_path)
+
+        result = list_definitions("nonexistent.py")
+        assert "Error" in result
+        assert "not found" in result
+
+    def test_list_definitions_outside_root(self, tmp_path):
+        """Test list_definitions blocks files outside project root."""
+        set_project_root(tmp_path)
+
+        result = list_definitions("/etc/passwd")
+        assert "Error" in result
+        assert "outside project root" in result
+
+    def test_list_definitions_unsupported_language(self, tmp_path):
+        """Test list_definitions with unsupported file type."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "config.xyz"
+        test_file.write_text("some content")
+
+        result = list_definitions(str(test_file))
+        assert "Error" in result
+        assert "Unsupported" in result
+
+    def test_list_definitions_empty_file(self, tmp_path):
+        """Test list_definitions with file containing no definitions."""
+        set_project_root(tmp_path)
+
+        test_file = tmp_path / "empty.py"
+        test_file.write_text("# Just a comment\nCONSTANT = 42")
+
+        result = list_definitions(str(test_file))
+        assert "No definitions found" in result or result.strip() == ""
