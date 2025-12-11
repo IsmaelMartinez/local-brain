@@ -661,8 +661,9 @@ def create_agent(model_id: str, verbose: bool = False) -> ToolCallingAgent:
         Configured ToolCallingAgent instance
     """
     model = LiteLLMModel(
-        model_id=f"ollama/{model_id}",
+        model_id=f"ollama_chat/{model_id}",
         api_base="http://localhost:11434",
+        num_ctx=8192,  # Increase context window from default 2048
     )
 
     verbosity = 2 if verbose else 0
