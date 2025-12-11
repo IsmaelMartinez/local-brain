@@ -34,6 +34,8 @@ local-brain --trace "prompt"            # Enable OTEL tracing
 local-brain --list-models               # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
 local-brain doctor                      # Check system health
+local-brain ui                          # Launch web-based chat interface
+local-brain ui --share                  # Create a public shareable link
 ```
 
 ## Health Check
@@ -118,6 +120,25 @@ This traces:
 Install tracing dependencies:
 ```bash
 pip install local-brain[tracing]
+```
+
+## Web Interface (Gradio UI)
+
+Launch a browser-based chat interface instead of using the CLI:
+
+```bash
+# Install gradio dependency
+pip install local-brain[gradio]
+
+# Launch the UI
+local-brain ui
+
+# With options
+local-brain ui --share              # Create public shareable link
+local-brain ui -m qwen2.5-coder:7b  # Use specific model
+local-brain ui --port 8080          # Custom port (default: 7860)
+local-brain ui -v                   # Verbose output
+local-brain ui --trace              # Enable OTEL tracing
 ```
 
 ## Security

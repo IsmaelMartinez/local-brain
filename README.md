@@ -96,6 +96,8 @@ local-brain -v "prompt"                    # Verbose (show tool calls)
 local-brain -m qwen2.5-coder:7b "prompt"   # Specific model
 local-brain --list-models                  # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
+local-brain ui                             # Launch web-based chat interface
+local-brain ui --share                     # Create a public shareable link
 ```
 
 ### Model Discovery
@@ -168,6 +170,24 @@ The LLM writes Python code that calls our tools—it cannot bypass them to run a
 
 **Why no web access?** Claude Code already has web access—delegate web research to Claude, local codebase work to Local Brain. This separation prevents data exfiltration and prompt injection from fetched content.
 
+### Web Interface (Gradio UI)
+
+Launch a browser-based chat interface:
+
+```bash
+# Install gradio dependency
+pip install local-brain[gradio]
+
+# Launch the UI
+local-brain ui
+
+# With options
+local-brain ui --share              # Create public shareable link
+local-brain ui -m qwen2.5-coder:7b  # Use specific model
+local-brain ui --port 8080          # Custom port (default: 7860)
+local-brain ui -v                   # Verbose output
+```
+
 ### Future Ideas
 
 - **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
@@ -223,6 +243,11 @@ uv run local-brain "Hello!"
 ```
 
 **Note:** Requires Python 3.10-3.13 (grpcio build issue with 3.14).
+
+> **macOS grpcio installation error?** If you see compilation errors for grpcio, force installation of pre-built wheels:
+> ```bash
+> uv pip install --only-binary :all: grpcio
+> ```
 
 ### Run Tests
 
