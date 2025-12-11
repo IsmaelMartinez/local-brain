@@ -481,7 +481,10 @@ def _get_docstring(node, code_bytes: bytes) -> str | None:
             doc = ast.literal_eval(string_node.text.decode())
             return doc[:80] + "..." if len(doc) > 80 else doc
         except (ValueError, SyntaxError):
-            # Fallback for any unexpected format
+            # Silently skip malformed docstrings - this can happen with:
+            # - Incomplete/malformed string literals in parsed code
+            # - Edge cases tree-sitter parses but ast.literal_eval rejects
+            # Returning None is acceptable since docstrings are optional metadata
             return None
 
     return None
@@ -506,7 +509,10 @@ def _extract_python_definitions(tree, code_bytes: bytes) -> list[str]:
                 if body:
                     for child in body.children:
                         walk(child, indent + 1)
-                return  # Don't recurse again
+                # Early return is intentional: we've already processed the class body above,
+                # so we skip the generic child iteration below to avoid double-processing.
+                # Sibling definitions at the same level are handled by the parent's walk loop.
+                return
 
         elif node.type == "function_definition":
             name = node.child_by_field_name("name")
@@ -524,7 +530,8 @@ def _extract_python_definitions(tree, code_bytes: bytes) -> list[str]:
                 doc = _get_docstring(node, code_bytes)
                 if doc:
                     output_lines.append(f'{prefix}  "{doc}"')
-                return  # Don't recurse into body
+                # Early return skips function body - we only want signatures, not implementation
+                return
 
         for child in node.children:
             walk(child, indent)
