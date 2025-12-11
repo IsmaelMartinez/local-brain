@@ -18,6 +18,74 @@ from .models import (
 from .security import set_project_root
 
 
+def _setup_environment(
+    root: str | None, verbose: bool, trace: bool, model: str | None
+) -> tuple[str, str]:
+    """Set up project root, tracing, and model selection.
+
+    Args:
+        root: Project root directory (or None for current directory)
+        verbose: Whether to show verbose output
+        trace: Whether to enable OTEL tracing
+        model: Model name (or None for auto-selection)
+
+    Returns:
+        Tuple of (project_root, selected_model)
+    """
+    # Initialize security - set project root for path jailing
+    project_root = set_project_root(root)
+
+    if verbose:
+        click.echo(f"📁 Project root: {project_root}")
+
+    # Enable tracing if requested
+    if trace:
+        from .tracing import setup_tracing
+
+        if setup_tracing():
+            if verbose:
+                click.echo("🔍 OTEL tracing enabled")
+        else:
+            click.echo(
+                "⚠️  Tracing unavailable (install: pip install "
+                "openinference-instrumentation-smolagents opentelemetry-sdk)",
+                err=True,
+            )
+
+    # Smart model selection
+    selected_model, was_fallback = select_model_for_task(model)
+
+    if was_fallback:
+        # Check if original model was incompatible
+        if model and is_model_incompatible(model):
+            click.echo(
+                f"❌ Model '{model}' is incompatible (tool calling broken).\n"
+                f"   Using '{selected_model}' instead.\n"
+                f"   See docs/model-performance-comparison.md for details.",
+                err=True,
+            )
+        else:
+            click.echo(
+                f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
+                err=True,
+            )
+
+    # Check if selected model is available
+    if not check_model_available(selected_model):
+        click.echo(
+            f"❌ Model '{selected_model}' not installed.\n\n"
+            f"Install with: ollama pull {selected_model}\n\n"
+            f"Or try: ollama pull {DEFAULT_MODEL}",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    if verbose:
+        click.echo(f"🤖 Model: {selected_model}")
+
+    return str(project_root), selected_model
+
+
 @click.group(invoke_without_command=True)
 @click.argument("prompt", required=False, default="")
 @click.option(
@@ -84,56 +152,8 @@ def main(
     if not prompt:
         raise click.UsageError("Missing argument 'PROMPT'. Run with --help for usage.")
 
-    # Initialize security - set project root for path jailing
-    project_root = set_project_root(root)
-
-    if verbose:
-        click.echo(f"📁 Project root: {project_root}")
-
-    # Enable tracing if requested
-    if trace:
-        from .tracing import setup_tracing
-
-        if setup_tracing():
-            if verbose:
-                click.echo("🔍 OTEL tracing enabled")
-        else:
-            click.echo(
-                "⚠️  Tracing unavailable (install: pip install "
-                "openinference-instrumentation-smolagents opentelemetry-sdk)",
-                err=True,
-            )
-
-    # Smart model selection
-    selected_model, was_fallback = select_model_for_task(model)
-
-    if was_fallback:
-        # Check if original model was incompatible
-        if model and is_model_incompatible(model):
-            click.echo(
-                f"❌ Model '{model}' is incompatible (tool calling broken).\n"
-                f"   Using '{selected_model}' instead.\n"
-                f"   See docs/model-performance-comparison.md for details.",
-                err=True,
-            )
-        else:
-            click.echo(
-                f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
-                err=True,
-            )
-
-    # Check if selected model is available
-    if not check_model_available(selected_model):
-        click.echo(
-            f"❌ Model '{selected_model}' not installed.\n\n"
-            f"Install with: ollama pull {selected_model}\n\n"
-            f"Or try: ollama pull {DEFAULT_MODEL}",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    if verbose:
-        click.echo(f"🤖 Model: {selected_model}")
+    # Common setup: project root, tracing, and model selection
+    project_root, selected_model = _setup_environment(root, verbose, trace, model)
 
     result = run_smolagent(
         prompt=prompt,
@@ -156,9 +176,7 @@ def main(
 )
 @click.option("--verbose", "-v", is_flag=True, help="Show execution details")
 @click.option("--trace", "-t", is_flag=True, help="Enable OTEL tracing")
-@click.option(
-    "--port", "-p", default=7860, type=int, help="Port to run the server on"
-)
+@click.option("--port", "-p", default=7860, type=int, help="Port to run the server on")
 def ui(
     model: str | None,
     root: str | None,
@@ -188,53 +206,8 @@ def ui(
         )
         raise SystemExit(1)
 
-    # Initialize security - set project root for path jailing
-    project_root = set_project_root(root)
-
-    if verbose:
-        click.echo(f"📁 Project root: {project_root}")
-
-    # Enable tracing if requested
-    if trace:
-        from .tracing import setup_tracing
-
-        if setup_tracing():
-            if verbose:
-                click.echo("🔍 OTEL tracing enabled")
-        else:
-            click.echo(
-                "⚠️  Tracing unavailable (install: pip install "
-                "openinference-instrumentation-smolagents opentelemetry-sdk)",
-                err=True,
-            )
-
-    # Smart model selection
-    selected_model, was_fallback = select_model_for_task(model)
-
-    if was_fallback:
-        # Check if original model was incompatible
-        if model and is_model_incompatible(model):
-            click.echo(
-                f"❌ Model '{model}' is incompatible (tool calling broken).\n"
-                f"   Using '{selected_model}' instead.\n"
-                f"   See docs/model-performance-comparison.md for details.",
-                err=True,
-            )
-        else:
-            click.echo(
-                f"⚠️  Model '{model}' not found. Using '{selected_model}' instead.",
-                err=True,
-            )
-
-    # Check if selected model is available
-    if not check_model_available(selected_model):
-        click.echo(
-            f"❌ Model '{selected_model}' not installed.\n\n"
-            f"Install with: ollama pull {selected_model}\n\n"
-            f"Or try: ollama pull {DEFAULT_MODEL}",
-            err=True,
-        )
-        raise SystemExit(1)
+    # Common setup: project root, tracing, and model selection
+    project_root, selected_model = _setup_environment(root, verbose, trace, model)
 
     click.echo(f"🤖 Starting Gradio UI with model: {selected_model}")
     click.echo(f"📁 Project root: {project_root}")
