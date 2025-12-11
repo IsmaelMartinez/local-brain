@@ -35,7 +35,6 @@ local-brain --list-models               # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
 local-brain doctor                      # Check system health
 local-brain ui                          # Launch web-based chat interface
-local-brain ui --share                  # Create a public shareable link
 ```
 
 ## Health Check
