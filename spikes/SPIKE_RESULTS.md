@@ -15,8 +15,6 @@
 | 7: tree-sitter | ✅ **PASSED** | ✅ Implemented in v0.6.0 (`list_definitions` tool) |
 | 8: Pyodide Sandbox | ⚠️ **DEFERRED** | N/A - LocalPythonExecutor is sufficient |
 
-> **Note:** Spikes 6, 7, and 8 are kept for reference even after implementation.
-
 ---
 
 ## Spike 5: OTEL Tracing ✅ → Implemented v0.5.0

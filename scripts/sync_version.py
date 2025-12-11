@@ -4,6 +4,7 @@
 This ensures the library version, plugin version, and marketplace version
 are always in sync.
 """
+
 import json
 import re
 from pathlib import Path
@@ -32,7 +33,9 @@ def update_plugin_json(path: Path, version: str) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n")
 
     if old_version != version:
-        print(f"✓ Updated {path.relative_to(Path.cwd())} from {old_version} to {version}")
+        print(
+            f"✓ Updated {path.relative_to(Path.cwd())} from {old_version} to {version}"
+        )
     else:
         print(f"✓ {path.relative_to(Path.cwd())} already at {version}")
 
