@@ -128,7 +128,7 @@ Launch a browser-based chat interface instead of using the CLI:
 
 ```bash
 # Install gradio dependency
-pip install local-brain[gradio]
+uv pip install local-brain[gradio]
 
 # Launch the UI
 local-brain ui
