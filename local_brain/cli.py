@@ -222,7 +222,7 @@ def ui(
 
     # Launch Gradio UI
     gradio_ui = GradioUI(agent)
-    gradio_ui.launch(share=False, server_port=port)
+    gradio_ui.launch(server_port=port)
 
 
 @main.command()
