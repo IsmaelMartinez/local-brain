@@ -22,30 +22,27 @@ class ModelInfo:
 
 
 # Recommended models for tool-calling tasks (ordered by preference)
+# Based on testing documented in docs/model-performance-comparison.md
 RECOMMENDED_MODELS: dict[str, ModelInfo] = {
-    # Tier 1 - Excellent tool support
+    # Tier 1 - Excellent tool support (verified working)
     "qwen3:latest": ModelInfo(
-        "qwen3:latest", 4.4, "excellent", "General purpose, default", 1
+        "qwen3:latest", 5.2, "excellent", "General purpose, default", 1
     ),
     "qwen3:8b": ModelInfo("qwen3:8b", 4.9, "excellent", "General purpose", 1),
     "qwen3:14b": ModelInfo("qwen3:14b", 9.0, "excellent", "Complex reasoning", 1),
-    # Tier 1 - Code-focused with excellent tool support
-    "qwen2.5-coder:7b": ModelInfo(
-        "qwen2.5-coder:7b", 4.7, "excellent", "Code-focused tasks", 1
-    ),
-    "qwen2.5-coder:14b": ModelInfo(
-        "qwen2.5-coder:14b", 9.0, "excellent", "Complex code analysis", 1
-    ),
-    "qwen2.5-coder:32b": ModelInfo(
-        "qwen2.5-coder:32b", 19.0, "excellent", "Advanced code tasks", 1
+    # Tier 1 - Small but excellent (tested excellent, 60% smaller than qwen3)
+    "qwen2.5:3b": ModelInfo(
+        "qwen2.5:3b", 1.9, "excellent", "Resource-constrained, fast", 1
     ),
     # Tier 2 - Good tool support
+    "ministral-3:latest": ModelInfo(
+        "ministral-3:latest", 6.0, "good", "Mistral AI, newer", 2
+    ),
     "llama3.2:3b": ModelInfo("llama3.2:3b", 2.0, "good", "Fast, lightweight", 2),
-    "llama3.2:1b": ModelInfo("llama3.2:1b", 1.3, "good", "Ultra-fast, minimal", 2),
     "llama3.1:8b": ModelInfo("llama3.1:8b", 4.7, "good", "Balanced performance", 2),
     "mistral:7b": ModelInfo("mistral:7b", 4.1, "good", "Balanced, reliable", 2),
     "mistral:latest": ModelInfo("mistral:latest", 4.1, "good", "Balanced, reliable", 2),
-    # Tier 2 - Larger models
+    # Tier 2 - Larger models (untested but likely good)
     "deepseek-coder-v2:16b": ModelInfo(
         "deepseek-coder-v2:16b", 8.9, "good", "Complex code analysis", 2
     ),
@@ -53,6 +50,21 @@ RECOMMENDED_MODELS: dict[str, ModelInfo] = {
     # Tier 3 - Limited but usable
     "gemma2:9b": ModelInfo("gemma2:9b", 5.4, "limited", "Google's model", 3),
     "phi3:mini": ModelInfo("phi3:mini", 2.2, "limited", "Microsoft's small model", 3),
+}
+
+# Models known to NOT work with local-brain (tool calling broken or unsupported)
+# DO NOT add these to RECOMMENDED_MODELS
+INCOMPATIBLE_MODELS = {
+    # qwen2.5-coder family: outputs JSON instead of executing tools (CodeAgent incompatibility)
+    "qwen2.5-coder:latest",
+    "qwen2.5-coder:3b",
+    "qwen2.5-coder:7b",
+    "qwen2.5-coder:14b",
+    "qwen2.5-coder:32b",
+    # DeepSeek R1: no tool support at architecture level (Ollama returns 400 error)
+    "deepseek-r1:latest",
+    # Llama 3.2 1B: too small, hallucinates paths and tool calls
+    "llama3.2:1b",
 }
 
 # Default model to suggest for installation
@@ -162,6 +174,18 @@ def check_model_available(model: str) -> bool:
     return model in installed
 
 
+def is_model_incompatible(model: str) -> bool:
+    """Check if a model is known to be incompatible with local-brain.
+
+    Args:
+        model: Model name to check.
+
+    Returns:
+        True if model is known to be incompatible, False otherwise.
+    """
+    return model in INCOMPATIBLE_MODELS
+
+
 def get_model_recommendation() -> tuple[str, str]:
     """Get a model recommendation with explanation.
 
@@ -197,10 +221,13 @@ def get_available_models_summary() -> str:
 
     # Show recommended models that are installed
     recommended_installed = []
+    incompatible_installed = []
     other_installed = []
 
     for name in installed:
-        if name in RECOMMENDED_MODELS:
+        if name in INCOMPATIBLE_MODELS:
+            incompatible_installed.append(f"  ❌ {name} - NOT COMPATIBLE")
+        elif name in RECOMMENDED_MODELS:
             info = RECOMMENDED_MODELS[name]
             recommended_installed.append(f"  ✅ {name} - {info.best_for}")
         else:
@@ -213,6 +240,11 @@ def get_available_models_summary() -> str:
         lines.extend(other_installed[:5])  # Limit to 5
         if len(other_installed) > 5:
             lines.append(f"  ... and {len(other_installed) - 5} more")
+
+    # Warn about incompatible models
+    if incompatible_installed:
+        lines.append("\nIncompatible (tool calling broken):")
+        lines.extend(incompatible_installed)
 
     # Suggest missing good models
     missing_tier1 = [
@@ -242,6 +274,14 @@ def select_model_for_task(
     """
     # If user requested a specific model
     if requested_model:
+        # Check if requested model is incompatible
+        if is_model_incompatible(requested_model):
+            # Force fallback to compatible model
+            best = find_best_model(task_hint)
+            if best:
+                return best, True
+            return DEFAULT_MODEL, True
+
         if check_model_available(requested_model):
             return requested_model, False
 

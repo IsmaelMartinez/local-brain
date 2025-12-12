@@ -42,17 +42,35 @@ class TestCLI:
     @patch("local_brain.cli.check_model_available")
     @patch("local_brain.cli.run_smolagent")
     def test_model_option(self, mock_run_smolagent, mock_check_model):
-        """Test --model option with an installed model."""
+        """Test --model option with a compatible installed model."""
         mock_run_smolagent.return_value = "Response"
         mock_check_model.return_value = True
 
         runner = CliRunner()
-        result = runner.invoke(main, ["-m", "llama3.2:1b", "Hello"])
+        result = runner.invoke(main, ["-m", "qwen3:latest", "Hello"])
 
         assert result.exit_code == 0
         # Check that model was passed
         call_kwargs = mock_run_smolagent.call_args[1]
-        assert call_kwargs["model"] == "llama3.2:1b"
+        assert call_kwargs["model"] == "qwen3:latest"
+
+    @patch("local_brain.cli.check_model_available")
+    @patch("local_brain.cli.run_smolagent")
+    def test_incompatible_model_fallback(self, mock_run_smolagent, mock_check_model):
+        """Test that incompatible models automatically fallback to compatible ones."""
+        mock_run_smolagent.return_value = "Response"
+        mock_check_model.return_value = True
+
+        runner = CliRunner()
+        # llama3.2:1b is incompatible, should fallback to qwen3:latest
+        result = runner.invoke(main, ["-m", "llama3.2:1b", "Hello"])
+
+        assert result.exit_code == 0
+        # Should show warning about incompatible model
+        assert "incompatible" in result.output.lower()
+        # Should have used fallback model
+        call_kwargs = mock_run_smolagent.call_args[1]
+        assert call_kwargs["model"] == "qwen3:latest"
 
     @patch("local_brain.cli.check_model_available")
     @patch("local_brain.cli.run_smolagent")

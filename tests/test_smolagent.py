@@ -117,10 +117,10 @@ class TestSmolagentGitTools:
 
 
 class TestSmolagentAgent:
-    """Tests for the smolagent ToolCallingAgent."""
+    """Tests for the smolagent CodeAgent."""
 
     @patch("local_brain.smolagent.LiteLLMModel")
-    @patch("local_brain.smolagent.ToolCallingAgent")
+    @patch("local_brain.smolagent.CodeAgent")
     def test_create_agent(self, mock_agent_class, mock_model):
         """Test agent creation."""
         mock_model_instance = MagicMock()

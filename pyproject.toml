@@ -29,6 +29,8 @@ dependencies = [
     "grep-ast>=0.9.0",
     "tree-sitter>=0.25.0",
     "tree-sitter-language-pack>=0.13.0",
+    # Pin grpcio to a version with pre-built macOS wheels (avoids compilation issues)
+    "grpcio>=1.67.0,<1.68.0",
 ]
 
 [project.scripts]

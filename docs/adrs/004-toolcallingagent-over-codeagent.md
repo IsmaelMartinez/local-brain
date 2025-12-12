@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 005 - CodeAgent with Markdown Tags](005-codeagent-with-markdown-tags.md)
 
 ## Context
 

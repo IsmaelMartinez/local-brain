@@ -1,3 +1,7 @@
+> [!WARNING]
+> **This is early experimental work — use it at your own risk!**
+> The API and features may change without notice.
+
 # Local Brain — Claude Code Plugin Marketplace
 
 A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extends Claude with local capabilities. The first skill lets Claude delegate codebase exploration to local Ollama models.
@@ -219,6 +223,11 @@ uv run local-brain "Hello!"
 ```
 
 **Note:** Requires Python 3.10-3.13 (grpcio build issue with 3.14).
+
+> **macOS grpcio installation error?** If you see compilation errors for grpcio, force installation of pre-built wheels:
+> ```bash
+> uv pip install --only-binary :all: grpcio
+> ```
 
 ### Run Tests
 

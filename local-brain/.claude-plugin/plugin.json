@@ -1,6 +1,6 @@
 {
   "name": "local-brain",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Delegate codebase exploration to local Ollama models with automatic tool calling",
   "author": {
     "name": "Ismael Martinez Ramos",

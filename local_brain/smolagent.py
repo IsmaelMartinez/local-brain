@@ -1,7 +1,9 @@
 """Smolagents-based agent for Local Brain.
 
-Uses HuggingFace's smolagents library for code-as-tool execution
-with sandboxed Python execution via LocalPythonExecutor.
+Uses HuggingFace's smolagents library with CodeAgent configured to accept
+markdown code blocks (```python...```) which local Ollama models naturally produce.
+
+See ADR 005 for the rationale behind using CodeAgent with markdown tags.
 """
 
 import subprocess
@@ -17,7 +19,7 @@ warnings.filterwarnings(
     module="smolagents.tools",
 )
 
-from smolagents import ToolCallingAgent, LiteLLMModel, tool  # noqa: E402
+from smolagents import CodeAgent, LiteLLMModel, tool  # noqa: E402
 
 from .security import (  # noqa: E402
     safe_path,
@@ -650,27 +652,32 @@ ALL_TOOLS = [
 # ============================================================================
 
 
-def create_agent(model_id: str, verbose: bool = False) -> ToolCallingAgent:
-    """Create a Smolagents ToolCallingAgent with the configured model.
+def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
+    """Create a Smolagents CodeAgent with the configured model.
+
+    Uses CodeAgent with markdown code block tags to work with local Ollama models
+    that naturally output ```python...``` format instead of <code>...</code> XML.
 
     Args:
         model_id: Ollama model ID (e.g., "qwen3:latest")
         verbose: Enable verbose output
 
     Returns:
-        Configured ToolCallingAgent instance
+        Configured CodeAgent instance
     """
     model = LiteLLMModel(
-        model_id=f"ollama/{model_id}",
+        model_id=f"ollama_chat/{model_id}",
         api_base="http://localhost:11434",
+        num_ctx=8192,  # Increase context window from default 2048
     )
 
     verbosity = 2 if verbose else 0
 
-    return ToolCallingAgent(
+    return CodeAgent(
         tools=ALL_TOOLS,
         model=model,
         verbosity_level=verbosity,
+        code_block_tags="markdown",  # Accept markdown code blocks from local models
     )
 
 
@@ -679,7 +686,7 @@ def run_smolagent(
     model: str = "qwen3:latest",
     verbose: bool = False,
 ) -> str:
-    """Run a task using the Smolagents ToolCallingAgent.
+    """Run a task using the Smolagents CodeAgent.
 
     Args:
         prompt: User's request
