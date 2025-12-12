@@ -569,3 +569,4 @@ Critical gaps exist in self-awareness across all working models. No tested model
 **Test Date**: 2025-12-11 (Updated with deepseek-r1 and qwen2.5-coder:3b)
 **Tester**: Claude Code + Ollama
 **Models Tested**: 7 (qwen3:latest, ministral-3:latest, qwen2.5:3b, qwen2.5-coder:latest, qwen2.5-coder:3b, deepseek-r1:latest, llama3.2:1b)
+

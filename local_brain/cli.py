@@ -5,7 +5,7 @@ import subprocess
 import click
 
 from . import __version__
-from .smolagent import run_smolagent, create_agent, ALL_TOOLS
+from .smolagent import run_smolagent, ALL_TOOLS
 from .models import (
     select_model_for_task,
     get_available_models_summary,
@@ -137,9 +137,6 @@ def main(
     if prompt == "doctor":
         ctx.invoke(doctor)
         return
-    if prompt == "ui":
-        ctx.invoke(ui)
-        return
 
     if version:
         click.echo(f"local-brain {__version__}")
@@ -162,64 +159,6 @@ def main(
     )
 
     click.echo(result)
-
-
-@main.command()
-@click.option(
-    "--model", "-m", default=None, help="Model to use (auto-selects if not specified)"
-)
-@click.option(
-    "--root",
-    "-r",
-    default=None,
-    help="Project root directory (default: current directory)",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Show execution details")
-@click.option("--trace", "-t", is_flag=True, help="Enable OTEL tracing")
-@click.option("--port", "-p", default=7860, type=int, help="Port to run the server on")
-def ui(
-    model: str | None,
-    root: str | None,
-    verbose: bool,
-    trace: bool,
-    port: int,
-):
-    """Launch a web-based chat interface using Gradio.
-
-    Opens a browser with a chat UI where you can interact with the agent.
-
-    Examples:
-
-    \b
-        local-brain ui
-        local-brain ui -m qwen2.5-coder:7b
-        local-brain ui --port 8080
-    """
-    try:
-        from smolagents import GradioUI
-    except ImportError:
-        click.echo(
-            "❌ Gradio is not installed.\n\n"
-            "Install with: pip install local-brain[gradio]\n"
-            "         or: pip install gradio",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    # Common setup: project root, tracing, and model selection
-    project_root, selected_model = _setup_environment(root, verbose, trace, model)
-
-    click.echo(f"🤖 Starting Gradio UI with model: {selected_model}")
-    click.echo(f"📁 Project root: {project_root}")
-    click.echo(f"🔧 Tools available: {len(ALL_TOOLS)}")
-    click.echo("")
-
-    # Create the agent
-    agent = create_agent(selected_model, verbose)
-
-    # Launch Gradio UI
-    gradio_ui = GradioUI(agent)
-    gradio_ui.launch(server_port=port)
 
 
 @main.command()

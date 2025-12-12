@@ -96,7 +96,6 @@ local-brain -v "prompt"                    # Verbose (show tool calls)
 local-brain -m qwen2.5-coder:7b "prompt"   # Specific model
 local-brain --list-models                  # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
-local-brain ui                             # Launch web-based chat interface
 ```
 
 ### Model Discovery
@@ -168,23 +167,6 @@ local_brain/
 The LLM writes Python code that calls our tools—it cannot bypass them to run arbitrary shell commands.
 
 **Why no web access?** Claude Code already has web access—delegate web research to Claude, local codebase work to Local Brain. This separation prevents data exfiltration and prompt injection from fetched content.
-
-### Web Interface (Gradio UI)
-
-Launch a browser-based chat interface:
-
-```bash
-# Install gradio dependency
-pip install local-brain[gradio]
-
-# Launch the UI
-local-brain ui
-
-# With options
-local-brain ui -m qwen2.5-coder:7b  # Use specific model
-local-brain ui --port 8080          # Custom port (default: 7860)
-local-brain ui -v                   # Verbose output
-```
 
 ### Future Ideas
 
