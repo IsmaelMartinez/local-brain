@@ -1,7 +1,7 @@
 ---
 name: local-brain
 description: Chat with local Ollama models that can explore your codebase using tools.
-version: 0.6.0
+version: 0.7.1
 ---
 
 # Local Brain
@@ -29,7 +29,7 @@ pipx install local-brain
 ```bash
 local-brain "prompt"                    # Ask anything (auto-selects best model)
 local-brain -v "prompt"                 # Show tool calls
-local-brain -m qwen2.5-coder:7b "prompt"  # Specific model
+local-brain -m qwen2.5:3b "prompt"        # Specific model
 local-brain --trace "prompt"            # Enable OTEL tracing
 local-brain --list-models               # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
@@ -94,11 +94,14 @@ Local Brain automatically detects installed Ollama models and selects the best o
 local-brain --list-models
 ```
 
-**Recommended models** (with excellent tool support):
-- `qwen3:latest` - General purpose, default choice
-- `qwen2.5-coder:7b` - Code-focused tasks
-- `llama3.2:3b` - Fast, lightweight
-- `mistral:7b` - Balanced performance
+**Recommended models** (verified tool support):
+- `qwen3:latest` - General purpose, default choice (Tier 1)
+- `qwen2.5:3b` - Resource-constrained environments (Tier 1)
+
+**Avoid these models** (broken or unreliable tool calling):
+- `qwen2.5-coder:*` - Broken with Smolagents
+- `llama3.2:1b` - Hallucinations
+- `deepseek-r1:*` - No tool support
 
 If no model is specified, Local Brain auto-selects the best installed model.
 
