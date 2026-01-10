@@ -1,10 +1,11 @@
 #!/bin/bash
+set -euo pipefail
 
 # Non-interactive Model Evaluation Test Script
 # Usage: ./scripts/test-model-auto.sh [model-name]
 # Example: ./scripts/test-model-auto.sh mistral-small:22b
 
-MODEL=${1:-"qwen3:latest"}
+MODEL=${1:-"qwen3:30b"}
 # Use uv run if available, otherwise fall back to direct command
 if command -v uv &> /dev/null; then
     LB="uv run local-brain"

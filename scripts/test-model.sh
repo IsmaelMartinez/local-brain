@@ -1,10 +1,11 @@
 #!/bin/bash
+set -euo pipefail
 
 # Model Evaluation Test Script
 # Usage: ./scripts/test-model.sh [model-name]
 # Example: ./scripts/test-model.sh qwen2.5-coder:7b
 
-MODEL=${1:-"qwen3:latest"}
+MODEL=${1:-"qwen3:30b"}
 # Use uv run if available, otherwise fall back to direct command
 if command -v uv &> /dev/null; then
     LB="uv run local-brain"
