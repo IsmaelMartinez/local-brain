@@ -164,7 +164,7 @@ def main():
 
     # Test CodeAgent (expected to have issues)
     code_result = test_agent("CodeAgent", model, task)
-    print(f"\nCodeAgent Result:")
+    print("\nCodeAgent Result:")
     print(f"  Success: {code_result['success']}")
     print(f"  Duration: {code_result['duration']:.1f}s")
     if code_result["error"]:
@@ -174,7 +174,7 @@ def main():
 
     # Test ToolCallingAgent (hypothesis: should work better)
     tool_result = test_agent("ToolCallingAgent", model, task)
-    print(f"\nToolCallingAgent Result:")
+    print("\nToolCallingAgent Result:")
     print(f"  Success: {tool_result['success']}")
     print(f"  Duration: {tool_result['duration']:.1f}s")
     if tool_result["error"]:
