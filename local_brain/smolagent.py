@@ -20,6 +20,7 @@ warnings.filterwarnings(
 )
 
 from smolagents import CodeAgent, LiteLLMModel, tool  # noqa: E402
+from smolagents.memory import ActionStep  # noqa: E402
 
 from .security import (  # noqa: E402
     safe_path,
@@ -91,9 +92,17 @@ def read_file(path: str) -> str:
 def list_directory(path: str = ".", pattern: str = "*") -> str:
     """List files in a directory matching a pattern.
 
+    Supports recursive patterns for exploring nested directories:
+    - "*" matches files in the directory only
+    - "**/*" recursively lists ALL files in all subdirectories
+    - "**/*.py" recursively finds all Python files
+    - "src/**/*.js" finds all JavaScript files under src/
+
+    For nested projects, start with pattern="**/*" to discover the full structure.
+
     Args:
         path: Directory path to list (default: current directory)
-        pattern: Glob pattern to filter files (e.g., "*.py", "**/*.md")
+        pattern: Glob pattern (e.g., "*.py", "**/*.md" for recursive)
 
     Returns:
         Newline-separated list of matching file paths
@@ -648,11 +657,55 @@ ALL_TOOLS = [
 
 
 # ============================================================================
+# Debug Callback
+# ============================================================================
+
+
+def _debug_step_callback(step: ActionStep) -> None:
+    """Print step-by-step progress for debugging."""
+    import sys
+
+    duration = step.timing.end_time - step.timing.start_time
+
+    # Print step header
+    print(f"\n[Step {step.step_number}] ({duration:.1f}s)", file=sys.stderr)
+
+    # Print tool calls
+    if step.tool_calls:
+        for tc in step.tool_calls:
+            if isinstance(tc.arguments, dict):
+                args_str = ", ".join(f"{k}={repr(v)}" for k, v in tc.arguments.items())
+            else:
+                args_str = repr(tc.arguments)
+            print(f"  Tool: {tc.name}({args_str})", file=sys.stderr)
+
+    # Print observation summary (truncated)
+    if step.observations:
+        obs_lines = step.observations.strip().split("\n")
+        if len(obs_lines) > 3:
+            obs_preview = "\n    ".join(obs_lines[:3]) + f"\n    ... ({len(obs_lines)} lines total)"
+        else:
+            obs_preview = "\n    ".join(obs_lines)
+        print(f"  Result:\n    {obs_preview}", file=sys.stderr)
+
+    # Print errors
+    if step.error:
+        print(f"  Error: {step.error}", file=sys.stderr)
+
+    # Print token usage if available
+    if step.token_usage:
+        print(
+            f"  Tokens: {step.token_usage.input_tokens} in / {step.token_usage.output_tokens} out",
+            file=sys.stderr,
+        )
+
+
+# ============================================================================
 # Agent
 # ============================================================================
 
 
-def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
+def create_agent(model_id: str, verbose: bool = False, debug: bool = False) -> CodeAgent:
     """Create a Smolagents CodeAgent with the configured model.
 
     Uses CodeAgent with markdown code block tags to work with local Ollama models
@@ -661,6 +714,7 @@ def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
     Args:
         model_id: Ollama model ID (e.g., "qwen3:latest")
         verbose: Enable verbose output
+        debug: Enable step-by-step debug output
 
     Returns:
         Configured CodeAgent instance
@@ -673,11 +727,15 @@ def create_agent(model_id: str, verbose: bool = False) -> CodeAgent:
 
     verbosity = 2 if verbose else 0
 
+    # Set up step callbacks for debug mode
+    step_callbacks = [_debug_step_callback] if debug else None
+
     return CodeAgent(
         tools=ALL_TOOLS,
         model=model,
         verbosity_level=verbosity,
         code_block_tags="markdown",  # Accept markdown code blocks from local models
+        step_callbacks=step_callbacks,
     )
 
 
@@ -685,6 +743,7 @@ def run_smolagent(
     prompt: str,
     model: str = "qwen3:latest",
     verbose: bool = False,
+    debug: bool = False,
 ) -> str:
     """Run a task using the Smolagents CodeAgent.
 
@@ -692,12 +751,13 @@ def run_smolagent(
         prompt: User's request
         model: Ollama model name
         verbose: Print execution details
+        debug: Enable step-by-step debug output
 
     Returns:
         The agent's final response
     """
     try:
-        agent = create_agent(model, verbose)
+        agent = create_agent(model, verbose, debug)
         result = agent.run(prompt)
         return str(result)
     except Exception as e:
