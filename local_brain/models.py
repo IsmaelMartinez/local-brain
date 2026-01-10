@@ -25,9 +25,11 @@ class ModelInfo:
 # Based on testing documented in docs/model-performance-comparison.md
 RECOMMENDED_MODELS: dict[str, ModelInfo] = {
     # Tier 1 - Excellent tool support (verified working)
-    "qwen3:latest": ModelInfo(
-        "qwen3:latest", 5.2, "excellent", "General purpose, default", 1
+    # qwen3:30b is first as it's the default and preferred model
+    "qwen3:30b": ModelInfo(
+        "qwen3:30b", 18.0, "excellent", "Default, complex reasoning", 1
     ),
+    "qwen3:latest": ModelInfo("qwen3:latest", 5.2, "excellent", "General purpose", 1),
     "qwen3:8b": ModelInfo("qwen3:8b", 4.9, "excellent", "General purpose", 1),
     "qwen3:14b": ModelInfo("qwen3:14b", 9.0, "excellent", "Complex reasoning", 1),
     # Tier 1 - Small but excellent (tested excellent, 60% smaller than qwen3)
@@ -68,7 +70,7 @@ INCOMPATIBLE_MODELS = {
 }
 
 # Default model to suggest for installation
-DEFAULT_MODEL = "qwen3:latest"
+DEFAULT_MODEL = "qwen3:30b"
 
 
 def list_installed_models() -> list:

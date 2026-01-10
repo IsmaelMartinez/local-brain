@@ -6,6 +6,7 @@ from click.testing import CliRunner
 
 from local_brain.cli import main, doctor
 from local_brain import __version__
+from local_brain.models import DEFAULT_MODEL
 
 
 class TestCLI:
@@ -62,7 +63,7 @@ class TestCLI:
         mock_check_model.return_value = True
 
         runner = CliRunner()
-        # llama3.2:1b is incompatible, should fallback to qwen3:latest
+        # llama3.2:1b is incompatible, should fallback to DEFAULT_MODEL
         result = runner.invoke(main, ["-m", "llama3.2:1b", "Hello"])
 
         assert result.exit_code == 0
@@ -70,7 +71,7 @@ class TestCLI:
         assert "incompatible" in result.output.lower()
         # Should have used fallback model
         call_kwargs = mock_run_smolagent.call_args[1]
-        assert call_kwargs["model"] == "qwen3:latest"
+        assert call_kwargs["model"] == DEFAULT_MODEL
 
     @patch("local_brain.cli.check_model_available")
     @patch("local_brain.cli.run_smolagent")
