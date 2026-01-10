@@ -37,12 +37,6 @@ RECOMMENDED_MODELS: dict[str, ModelInfo] = {
         "qwen2.5:3b", 1.9, "excellent", "Resource-constrained, fast", 1
     ),
     # Tier 2 - Good tool support
-    "mistral-small:22b": ModelInfo(
-        "mistral-small:22b", 12.0, "good", "Mistral AI, larger", 2
-    ),
-    "codestral:latest": ModelInfo(
-        "codestral:latest", 12.0, "good", "Mistral code model", 2
-    ),
     "ministral-3:latest": ModelInfo(
         "ministral-3:latest", 6.0, "good", "Mistral AI, newer", 2
     ),
