@@ -62,9 +62,11 @@ def setup_tracing(
             BatchSpanProcessor,
             ConsoleSpanExporter,
         )
+        from opentelemetry.sdk.resources import Resource
 
-        # Create and set tracer provider
-        tracer_provider = TracerProvider()
+        # Create resource with service name for Jaeger/OTEL
+        resource = Resource.create({"service.name": "local-brain"})
+        tracer_provider = TracerProvider(resource=resource)
         trace.set_tracer_provider(tracer_provider)
 
         # Add console exporter for debugging
