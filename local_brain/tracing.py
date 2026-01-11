@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 _tracing_enabled = False
 
 
-def setup_tracing(console_output: bool = True) -> bool:
+def setup_tracing(
+    console_output: bool = True, jaeger_endpoint: str = "http://localhost:4318/v1/traces"
+) -> bool:
     """Enable OTEL tracing for Smolagents.
 
     Smolagents captures everything automatically once instrumented:
@@ -28,8 +30,10 @@ def setup_tracing(console_output: bool = True) -> bool:
 
     Args:
         console_output: If True, export spans to console (default).
-                       Useful for debugging. Set False for production
-                       where you'd configure a different exporter.
+                       Useful for debugging. Set False to disable.
+        jaeger_endpoint: HTTP endpoint for Jaeger OTEL receiver.
+                        Default assumes Jaeger running locally on port 4318.
+                        Set to None to skip Jaeger export.
 
     Returns:
         True if tracing was enabled, False if dependencies missing.
@@ -37,9 +41,13 @@ def setup_tracing(console_output: bool = True) -> bool:
     Example:
         if trace_flag:
             if setup_tracing():
-                click.echo("🔍 Tracing enabled")
+                click.echo("🔍 Tracing enabled - view at http://localhost:16686")
             else:
                 click.echo("⚠️  Tracing unavailable (missing dependencies)")
+
+    Note:
+        For Jaeger visualization, run locally with:
+        docker run -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one
     """
     global _tracing_enabled
 
@@ -64,6 +72,24 @@ def setup_tracing(console_output: bool = True) -> bool:
             tracer_provider.add_span_processor(
                 BatchSpanProcessor(ConsoleSpanExporter())
             )
+
+        # Add Jaeger exporter for visualization
+        if jaeger_endpoint:
+            try:
+                from opentelemetry.exporter.trace.otlp.proto.http.trace_exporter import (
+                    OTLPSpanExporter,
+                )
+
+                jaeger_exporter = OTLPSpanExporter(endpoint=jaeger_endpoint)
+                tracer_provider.add_span_processor(
+                    BatchSpanProcessor(jaeger_exporter)
+                )
+            except ImportError:
+                print(
+                    "Note: Jaeger export not available. Install with: "
+                    "pip install opentelemetry-exporter-otlp",
+                    file=sys.stderr,
+                )
 
         # Instrument Smolagents - this captures agent runs, steps, LLM calls, tools
         SmolagentsInstrumentor().instrument(tracer_provider=tracer_provider)

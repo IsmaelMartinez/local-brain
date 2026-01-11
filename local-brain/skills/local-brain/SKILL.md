@@ -177,21 +177,78 @@ Example output:
 
 ### OTEL Tracing (--trace)
 
-Enable OpenTelemetry tracing for detailed spans:
+Enable OpenTelemetry tracing to visualize agent execution with detailed timing and metrics:
 
 ```bash
-local-brain --trace "What files are here?"
+local-brain --trace "Analyze the architecture"
 ```
 
-This traces:
-- Agent execution steps
+This captures:
+- Agent execution timeline (total duration)
+- Individual steps (planning, execution, final answer)
 - LLM calls with token counts
 - Tool invocations with inputs/outputs
+- Timing for each operation
 
-Install tracing dependencies:
+#### Visualizing Traces with Jaeger (Recommended)
+
+For real-time visualization of agent execution, use Jaeger:
+
+**1. Start Jaeger (one-time setup):**
+```bash
+docker run -d \
+  --name jaeger \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one
+```
+
+**2. Run local-brain with tracing:**
+```bash
+local-brain --trace -m qwen3-coder:30b "List all files in src/"
+```
+
+**3. View in Jaeger UI:**
+Open http://localhost:16686 and select:
+- Service: `local-brain`
+- Operation: `CodeAgent.run`
+
+You'll see a waterfall timeline showing:
+```
+CodeAgent.run (5.1s total)
+├── Step 1 (2.04s)
+│   ├── LiteLLMModel.generate (2.03s) ← LLM latency
+│   └── list_directory (1.5ms) ← Tool execution
+└── Step 2 (3.09s)
+    ├── LiteLLMModel.generate (3.09s)
+    └── FinalAnswerTool (0.1ms)
+```
+
+Click any span to see details: tokens used, arguments, outputs, errors.
+
+#### Install Tracing Dependencies
+
+For JSON console output only (no Jaeger):
 ```bash
 pip install local-brain[tracing]
 ```
+
+For Jaeger visualization, also install:
+```bash
+pip install opentelemetry-exporter-otlp
+```
+
+#### Combining Flags for Maximum Insight
+
+Use all three flags together for complete visibility:
+```bash
+local-brain --trace --debug -m qwen3-coder:30b "Review the code"
+```
+
+This gives:
+- `--trace` → OTEL spans in Jaeger (timing, tokens, architecture)
+- `--debug` → Real-time step progress to stderr (what's happening now)
+- `--verbose` → Tool calls in main output (what was called)
 
 Note: `--debug` and `--trace` can be combined.
 

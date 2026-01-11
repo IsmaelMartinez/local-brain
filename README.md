@@ -168,12 +168,17 @@ The LLM writes Python code that calls our tools—it cannot bypass them to run a
 
 **Why no web access?** Claude Code already has web access—delegate web research to Claude, local codebase work to Local Brain. This separation prevents data exfiltration and prompt injection from fetched content.
 
+### Recent Features
+
+- **Observability** — Full OpenTelemetry tracing with Jaeger visualization (v0.8.0)
+- **Debug Mode** — Step-by-step progress output with `--debug` flag (v0.8.0)
+- **qwen3-coder Models** — Fast code exploration models added to Tier 1 (v0.8.0)
+
 ### Future Ideas
 
 - **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
 - **Docker Sandbox** — Stronger isolation via container when Docker is available
 - **CLI Wrappers** — Wrap existing tools (ripgrep, gh, tokei) instead of custom implementations
-- **Observability** — Add tracing and logging for debugging agent behavior
 
 ### Architecture Decisions
 
