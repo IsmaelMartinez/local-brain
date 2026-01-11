@@ -1,7 +1,7 @@
 ---
 name: local-brain
 description: Chat with local Ollama models that can explore your codebase using tools.
-version: 0.7.2
+version: 0.8.0
 ---
 
 # Local Brain
@@ -29,7 +29,8 @@ pipx install local-brain
 ```bash
 local-brain "prompt"                    # Ask anything (auto-selects best model)
 local-brain -v "prompt"                 # Show tool calls
-local-brain -m qwen2.5:3b "prompt"        # Specific model
+local-brain -d "prompt"                 # Show step-by-step debug output
+local-brain -m qwen3-coder:30b "prompt" # Specific model
 local-brain --trace "prompt"            # Enable OTEL tracing
 local-brain --list-models               # Show available models
 local-brain --root /path/to/project "prompt"  # Set project root
@@ -85,29 +86,98 @@ local-brain "What functions are defined in utils.py?"
 local-brain "Search for 'validate' in the auth module"
 ```
 
-## Model Discovery
+## Model Selection Guide
 
-Local Brain automatically detects installed Ollama models and selects the best one for tool-calling tasks:
+Choose the right model for your task:
+
+### For Code Exploration (Recommended)
+
+Use `qwen3-coder:30b` for fast, direct code exploration:
 
 ```bash
-# See what models are available
-local-brain --list-models
+local-brain -m qwen3-coder:30b "List all files in src/lib/"
+local-brain -m qwen3-coder:30b "Read the main configuration file"
+local-brain -m qwen3-coder:30b "Find all TODO comments"
+local-brain -m qwen3-coder:30b "What functions are in utils.py?"
 ```
 
-**Recommended models** (verified tool support):
-- `qwen3:latest` - General purpose, default choice (Tier 1)
-- `qwen2.5:3b` - Resource-constrained environments (Tier 1)
+Why: 2.5x faster than qwen3:30b (3-20s per step vs 120-260s), direct tool usage.
+
+### For Complex Reasoning
+
+Use `qwen3:30b` for tasks requiring deeper analysis:
+
+```bash
+local-brain -m qwen3:30b "Analyze the architecture of this codebase"
+local-brain -m qwen3:30b "Review recent changes and suggest improvements"
+local-brain -m qwen3:30b "Explain how authentication works end-to-end"
+```
+
+Why: More thorough reasoning, better at synthesis tasks.
+
+### For Resource-Constrained Environments
+
+Use `qwen2.5:3b` for fast, lightweight operation:
+
+```bash
+local-brain -m qwen2.5:3b "What files changed?"
+local-brain -m qwen2.5:3b "Show git status"
+```
+
+Why: 60% smaller than qwen3, same quality for simple tasks.
+
+### Tips for Better Results
+
+When exploring nested directories, ask for recursive listing:
+```bash
+local-brain -m qwen3-coder:30b "List ALL files recursively with pattern **/*"
+```
+
+Use --debug to see what the model is doing:
+```bash
+local-brain -d -m qwen3-coder:30b "Find Python files"
+```
 
 **Avoid these models** (broken or unreliable tool calling):
-- `qwen2.5-coder:*` - Broken with Smolagents
-- `llama3.2:1b` - Hallucinations
-- `deepseek-r1:*` - No tool support
+- `qwen2.5-coder:*` - Outputs JSON instead of executing tools
+- `llama3.2:1b` - Too small, hallucinates paths
+- `deepseek-r1:*` - No tool support at architecture level
 
 If no model is specified, Local Brain auto-selects the best installed model.
 
 ## Observability
 
-Enable OpenTelemetry tracing with the `--trace` flag:
+### Debug Mode (--debug or -d)
+
+See step-by-step progress with the `--debug` flag:
+
+```bash
+local-brain --debug "What files are here?"
+```
+
+This shows:
+- Step number and duration
+- Tool calls with arguments
+- Result preview (truncated)
+- Token usage per step
+
+Example output:
+```
+[debug] Model: qwen3-coder:30b
+[debug] Project root: /path/to/project
+
+[Step 1] (4.2s)
+  Tool: list_directory(path='.', pattern='**/*')
+  Result:
+    src/main.py
+    src/utils.py
+    ... (15 lines total)
+  Tokens: 2634 in / 42 out
+```
+
+### OTEL Tracing (--trace)
+
+Enable OpenTelemetry tracing for detailed spans:
 
 ```bash
 local-brain --trace "What files are here?"
@@ -122,6 +192,8 @@ Install tracing dependencies:
 ```bash
 pip install local-brain[tracing]
 ```
+
+Note: `--debug` and `--trace` can be combined.
 
 ## Security
 
@@ -140,7 +212,12 @@ The model assumes these tools are available and uses them directly:
 
 ### File Tools
 - `read_file(path)` - Read file contents at a given `path`. Large files are truncated (200 lines / 20K chars). Has 30s timeout. **Restricted to project root.**
-- `list_directory(path, pattern)` - List files in `path` matching a glob `pattern` (e.g., `*.py`, `src/**/*.js`). Excludes hidden files and common ignored directories. Returns up to 100 files. Has 30s timeout.
+- `list_directory(path, pattern)` - List files in `path` matching a glob `pattern`. Supports recursive patterns:
+  - `*` - files in directory only
+  - `**/*` - ALL files recursively (use this to discover nested structures)
+  - `**/*.py` - all Python files recursively
+  - `src/**/*.js` - all JS files under src/
+  Excludes hidden files and common ignored directories. Returns up to 100 files. Has 30s timeout.
 - `file_info(path)` - Get file metadata (size, type, modified time) for a given `path`. Has 30s timeout.
 
 ### Code Navigation Tools (New in v0.6.0)

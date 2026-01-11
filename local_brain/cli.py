@@ -98,6 +98,7 @@ def _setup_environment(
     help="Project root directory (default: current directory)",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Show execution details")
+@click.option("--debug", "-d", is_flag=True, help="Show step-by-step progress")
 @click.option("--trace", "-t", is_flag=True, help="Enable OTEL tracing")
 @click.option("--list-models", is_flag=True, help="List available models and exit")
 @click.option("--version", "-V", is_flag=True, help="Show version")
@@ -108,6 +109,7 @@ def main(
     model: str | None,
     root: str | None,
     verbose: bool,
+    debug: bool,
     trace: bool,
     list_models: bool,
     version: bool,
@@ -152,10 +154,16 @@ def main(
     # Common setup: project root, tracing, and model selection
     project_root, selected_model = _setup_environment(root, verbose, trace, model)
 
+    if debug:
+        click.echo(f"[debug] Model: {selected_model}")
+        click.echo(f"[debug] Project root: {project_root}")
+        click.echo("")
+
     result = run_smolagent(
         prompt=prompt,
         model=selected_model,
         verbose=verbose,
+        debug=debug,
     )
 
     click.echo(result)

@@ -36,6 +36,16 @@ RECOMMENDED_MODELS: dict[str, ModelInfo] = {
     "qwen2.5:3b": ModelInfo(
         "qwen2.5:3b", 1.9, "excellent", "Resource-constrained, fast", 1
     ),
+    # Tier 1 - Coder models (fast code exploration, 3-20s per step vs 120-260s for base qwen3)
+    "qwen3-coder:30b": ModelInfo(
+        "qwen3-coder:30b", 18.0, "excellent", "Code exploration (fast)", 1
+    ),
+    "qwen3-coder:14b": ModelInfo(
+        "qwen3-coder:14b", 9.0, "excellent", "Code exploration (balanced)", 1
+    ),
+    "qwen3-coder:8b": ModelInfo(
+        "qwen3-coder:8b", 4.9, "excellent", "Code exploration (light)", 1
+    ),
     # Tier 2 - Good tool support
     "ministral-3:latest": ModelInfo(
         "ministral-3:latest", 6.0, "good", "Mistral AI, newer", 2
