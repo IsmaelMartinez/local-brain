@@ -35,11 +35,14 @@ Delegate codebase exploration to local Ollama models. Claude offloads read-only 
                     results                        with code execution
 ```
 
-**What Claude can delegate:**
-- "Review the code changes"
-- "Explain how the auth module works"
-- "Generate a commit message"
-- "Find all TODO comments"
+**What Claude can delegate** (complex, multi-step tasks):
+- "Review recent changes and identify potential issues"
+- "Explain how authentication flows through the system"
+- "Analyze the error handling patterns in this codebase"
+- "Generate a commit message with context from the diff"
+
+**Not recommended** (use CLI directly — 1000x faster):
+- Simple file listing (`ls`), git status (`git status`), reading known files
 
 ---
 
@@ -84,10 +87,10 @@ ollama pull qwen3
 ### CLI Usage
 
 ```bash
-local-brain "What files changed recently?"
-local-brain "Review the code in src/"
-local-brain "Generate a commit message"
-local-brain "Explain how auth works"
+local-brain "Review recent changes and identify potential issues"
+local-brain "Explain how the authentication system works"
+local-brain "Generate a commit message from the staged changes"
+local-brain "Analyze error handling patterns in this codebase"
 ```
 
 ```bash
@@ -168,12 +171,17 @@ The LLM writes Python code that calls our tools—it cannot bypass them to run a
 
 **Why no web access?** Claude Code already has web access—delegate web research to Claude, local codebase work to Local Brain. This separation prevents data exfiltration and prompt injection from fetched content.
 
+### Recent Features
+
+- **Observability** — Full OpenTelemetry tracing with Jaeger visualization (v0.8.0)
+- **Debug Mode** — Step-by-step progress output with `--debug` flag (v0.8.0)
+- **qwen3-coder Models** — Fast code exploration models added to Tier 1 (v0.8.0)
+
 ### Future Ideas
 
 - **MCP Bridge** — Ollama ↔ Model Context Protocol bridge when MCP adoption increases
 - **Docker Sandbox** — Stronger isolation via container when Docker is available
 - **CLI Wrappers** — Wrap existing tools (ripgrep, gh, tokei) instead of custom implementations
-- **Observability** — Add tracing and logging for debugging agent behavior
 
 ### Architecture Decisions
 

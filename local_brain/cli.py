@@ -44,7 +44,7 @@ def _setup_environment(
 
         if setup_tracing():
             if verbose:
-                click.echo("🔍 OTEL tracing enabled")
+                click.echo("🔍 OTEL tracing enabled (view at http://localhost:16686)")
         else:
             click.echo(
                 "⚠️  Tracing unavailable (install: pip install "
