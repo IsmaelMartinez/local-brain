@@ -1,7 +1,7 @@
 ---
 name: local-brain
 description: Chat with local Ollama models that can explore your codebase using tools.
-version: 0.7.2
+version: 0.8.0
 ---
 
 # Local Brain
