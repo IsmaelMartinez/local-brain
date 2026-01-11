@@ -198,26 +198,6 @@ def is_model_incompatible(model: str) -> bool:
     return model in INCOMPATIBLE_MODELS
 
 
-def get_model_recommendation() -> tuple[str, str]:
-    """Get a model recommendation with explanation.
-
-    Returns:
-        Tuple of (recommended_model, explanation).
-    """
-    best = find_best_model()
-
-    if best:
-        info = RECOMMENDED_MODELS.get(best)
-        if info:
-            return best, f"Using {best} ({info.best_for}, {info.size_gb}GB)"
-        return best, f"Using {best}"
-
-    return (
-        DEFAULT_MODEL,
-        f"No recommended models installed. Suggest: ollama pull {DEFAULT_MODEL}",
-    )
-
-
 def get_available_models_summary() -> str:
     """Get a summary of available models for display.
 

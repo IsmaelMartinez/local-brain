@@ -9,17 +9,14 @@ When enabled, captures:
 """
 
 import sys
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 # Track if tracing is enabled
 _tracing_enabled = False
 
 
 def setup_tracing(
-    console_output: bool = True, jaeger_endpoint: str = "http://localhost:4318/v1/traces"
+    console_output: bool = True,
+    jaeger_endpoint: str = "http://localhost:4318/v1/traces",
 ) -> bool:
     """Enable OTEL tracing for Smolagents.
 
@@ -83,9 +80,7 @@ def setup_tracing(
                 )
 
                 jaeger_exporter = OTLPSpanExporter(endpoint=jaeger_endpoint)
-                tracer_provider.add_span_processor(
-                    BatchSpanProcessor(jaeger_exporter)
-                )
+                tracer_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
             except ImportError:
                 print(
                     "Note: Jaeger export not available. Install with: "
