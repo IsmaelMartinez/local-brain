@@ -1,12 +1,31 @@
 ---
 name: local-brain
-description: Chat with local Ollama models that can explore your codebase using tools.
-version: 0.8.0
+description: Delegate complex, multi-step codebase exploration to local Ollama models. Best for analysis, review, and understanding tasks that require reasoning across multiple files.
+version: 0.9.0
 ---
 
 # Local Brain
 
-Chat with local Ollama models that have tools to explore your codebase.
+Delegate complex codebase exploration to local Ollama models. Local Brain excels at multi-step tasks requiring reasoning, not simple commands.
+
+## When to Use Local Brain
+
+Local Brain adds 10-70 seconds of LLM inference overhead per query. Use it for tasks where AI reasoning provides value, not for simple commands.
+
+**Use Local Brain for:**
+- Multi-step exploration ("Find all error handlers and explain how they work")
+- Code review and analysis ("Review recent changes for potential issues")
+- Understanding unfamiliar code ("Explain how authentication flows through the system")
+- Tasks requiring judgment ("What patterns does this codebase use?")
+- When you don't know which files or commands to look at
+
+**Do NOT use Local Brain for:**
+- Simple file listing (use `ls` or `find` directly — 1000x faster)
+- Git status/log (use `git log` directly — 1000x faster)
+- Reading a specific known file (use `cat` or your editor)
+- Any single-command operation where you know what to run
+
+**Performance reality:** A simple "list files" query takes 12-70 seconds via Local Brain vs 5ms via `ls`. The value is in the reasoning, not the tool execution.
 
 ## Installation
 
@@ -76,14 +95,24 @@ Checking optional features...
 
 ## Examples
 
+Focus on tasks where AI reasoning adds value:
+
 ```bash
-local-brain "What's in this repo?"
-local-brain "Review the git changes"
-local-brain "Generate a commit message"
-local-brain "Explain how src/main.py works"
-local-brain "Find all TODO comments"
-local-brain "What functions are defined in utils.py?"
-local-brain "Search for 'validate' in the auth module"
+# Code review and analysis (good use case)
+local-brain "Review the recent git changes and identify potential issues"
+local-brain "Analyze the error handling patterns in this codebase"
+
+# Understanding unfamiliar code (good use case)
+local-brain "Explain how the authentication system works end-to-end"
+local-brain "What design patterns does this codebase use?"
+
+# Multi-step exploration (good use case)
+local-brain "Find all TODO comments and categorize them by urgency"
+local-brain "Trace how user input flows through the validation layer"
+
+# Generate content requiring context (good use case)
+local-brain "Generate a commit message based on the staged changes"
+local-brain "Summarize what changed in the last 5 commits"
 ```
 
 ## Model Selection Guide
@@ -92,50 +121,33 @@ Choose the right model for your task:
 
 ### For Code Exploration (Recommended)
 
-Use `qwen3-coder:30b` for fast, direct code exploration:
+Use `qwen3-coder:30b` for faster exploration tasks:
 
 ```bash
-local-brain -m qwen3-coder:30b "List all files in src/lib/"
-local-brain -m qwen3-coder:30b "Read the main configuration file"
-local-brain -m qwen3-coder:30b "Find all TODO comments"
-local-brain -m qwen3-coder:30b "What functions are in utils.py?"
+local-brain -m qwen3-coder:30b "Find all error handlers and explain how they work"
+local-brain -m qwen3-coder:30b "What validation patterns are used in this codebase?"
+local-brain -m qwen3-coder:30b "Trace the data flow from API endpoint to database"
 ```
 
-Why: 2.5x faster than qwen3:30b (3-20s per step vs 120-260s), direct tool usage.
+Why: 2.5x faster than qwen3:30b (12-20s vs 35-70s per query), direct tool usage.
 
 ### For Complex Reasoning
 
 Use `qwen3:30b` for tasks requiring deeper analysis:
 
 ```bash
-local-brain -m qwen3:30b "Analyze the architecture of this codebase"
-local-brain -m qwen3:30b "Review recent changes and suggest improvements"
+local-brain -m qwen3:30b "Analyze the architecture and suggest improvements"
+local-brain -m qwen3:30b "Review recent changes for security vulnerabilities"
 local-brain -m qwen3:30b "Explain how authentication works end-to-end"
 ```
 
-Why: More thorough reasoning, better at synthesis tasks.
-
-### For Resource-Constrained Environments
-
-Use `qwen2.5:3b` for fast, lightweight operation:
-
-```bash
-local-brain -m qwen2.5:3b "What files changed?"
-local-brain -m qwen2.5:3b "Show git status"
-```
-
-Why: 60% smaller than qwen3, same quality for simple tasks.
+Why: More thorough reasoning, better at synthesis and review tasks.
 
 ### Tips for Better Results
 
-When exploring nested directories, ask for recursive listing:
+Use --debug to see what the model is doing step-by-step:
 ```bash
-local-brain -m qwen3-coder:30b "List ALL files recursively with pattern **/*"
-```
-
-Use --debug to see what the model is doing:
-```bash
-local-brain -d -m qwen3-coder:30b "Find Python files"
+local-brain -d -m qwen3-coder:30b "Analyze the test coverage gaps"
 ```
 
 **Avoid these models** (broken or unreliable tool calling):
@@ -152,7 +164,7 @@ If no model is specified, Local Brain auto-selects the best installed model.
 See step-by-step progress with the `--debug` flag:
 
 ```bash
-local-brain --debug "What files are here?"
+local-brain --debug "Analyze error handling in the auth module"
 ```
 
 This shows:
@@ -180,7 +192,7 @@ Example output:
 Enable OpenTelemetry tracing to visualize agent execution with detailed timing and metrics:
 
 ```bash
-local-brain --trace "Analyze the architecture"
+local-brain --trace "Review recent changes and identify potential issues"
 ```
 
 This captures:
@@ -205,7 +217,7 @@ docker run -d \
 
 **2. Run local-brain with tracing:**
 ```bash
-local-brain --trace -m qwen3-coder:30b "List all files in src/"
+local-brain --trace -m qwen3-coder:30b "Analyze the test patterns in this codebase"
 ```
 
 **3. View in Jaeger UI:**
@@ -242,7 +254,7 @@ pip install opentelemetry-exporter-otlp
 
 Use all three flags together for complete visibility:
 ```bash
-local-brain --trace --debug -m qwen3-coder:30b "Review the code"
+local-brain --trace --debug -m qwen3-coder:30b "Review recent changes for security issues"
 ```
 
 This gives:
