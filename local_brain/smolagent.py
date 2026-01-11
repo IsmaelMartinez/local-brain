@@ -683,7 +683,10 @@ def _debug_step_callback(step: ActionStep) -> None:
     if step.observations:
         obs_lines = step.observations.strip().split("\n")
         if len(obs_lines) > 3:
-            obs_preview = "\n    ".join(obs_lines[:3]) + f"\n    ... ({len(obs_lines)} lines total)"
+            obs_preview = (
+                "\n    ".join(obs_lines[:3])
+                + f"\n    ... ({len(obs_lines)} lines total)"
+            )
         else:
             obs_preview = "\n    ".join(obs_lines)
         print(f"  Result:\n    {obs_preview}", file=sys.stderr)
@@ -705,7 +708,9 @@ def _debug_step_callback(step: ActionStep) -> None:
 # ============================================================================
 
 
-def create_agent(model_id: str, verbose: bool = False, debug: bool = False) -> CodeAgent:
+def create_agent(
+    model_id: str, verbose: bool = False, debug: bool = False
+) -> CodeAgent:
     """Create a Smolagents CodeAgent with the configured model.
 
     Uses CodeAgent with markdown code block tags to work with local Ollama models

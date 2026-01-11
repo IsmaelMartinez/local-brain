@@ -91,10 +91,10 @@ def read_file_content(path: str) -> str:
 
 def test_agent(agent_type: str, model_id: str, task: str) -> dict:
     """Test an agent type with a model."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing {agent_type} with {model_id}")
     print(f"Task: {task}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     model = LiteLLMModel(
         model_id=f"ollama_chat/{model_id}",
@@ -186,14 +186,20 @@ def main():
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    print(f"CodeAgent:       {'PASS' if code_result['success'] else 'FAIL'} ({code_result['duration']:.1f}s)")
-    print(f"ToolCallingAgent: {'PASS' if tool_result['success'] else 'FAIL'} ({tool_result['duration']:.1f}s)")
+    print(
+        f"CodeAgent:       {'PASS' if code_result['success'] else 'FAIL'} ({code_result['duration']:.1f}s)"
+    )
+    print(
+        f"ToolCallingAgent: {'PASS' if tool_result['success'] else 'FAIL'} ({tool_result['duration']:.1f}s)"
+    )
 
     if tool_result["success"] and not code_result["success"]:
         print("\nConclusion: ToolCallingAgent works better for qwen3-coder!")
         print("Recommendation: Use ToolCallingAgent for qwen3-coder models")
     elif code_result["success"] and tool_result["success"]:
-        print("\nConclusion: Both agents work. CodeAgent may be preferred for code-gen.")
+        print(
+            "\nConclusion: Both agents work. CodeAgent may be preferred for code-gen."
+        )
     elif not code_result["success"] and not tool_result["success"]:
         print("\nConclusion: Neither agent works well with this model.")
     else:
