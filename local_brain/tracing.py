@@ -76,7 +76,7 @@ def setup_tracing(
         # Add Jaeger exporter for visualization
         if jaeger_endpoint:
             try:
-                from opentelemetry.exporter.trace.otlp.proto.http.trace_exporter import (
+                from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                     OTLPSpanExporter,
                 )
 
@@ -87,7 +87,7 @@ def setup_tracing(
             except ImportError:
                 print(
                     "Note: Jaeger export not available. Install with: "
-                    "pip install opentelemetry-exporter-otlp",
+                    "pip install local-brain[tracing]",
                     file=sys.stderr,
                 )
 

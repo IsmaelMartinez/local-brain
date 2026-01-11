@@ -19,3 +19,15 @@ local_brain/
 uv sync
 uv run local-brain "Hello"
 ```
+
+## Version Bumping
+
+When updating the version in `local_brain/__init__.py`, always run the sync script to update all plugin.json files:
+
+```bash
+uv run scripts/sync_version.py
+```
+
+This syncs the version across:
+- `local-brain/plugin.json`
+- `local-brain/.claude-plugin/plugin.json`
