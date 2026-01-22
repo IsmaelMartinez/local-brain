@@ -21,7 +21,7 @@
 
 > **"Don't build what already exists"** is easy advice to give. It's harder to follow when you're deep in the problem, convinced your solution is different, and the ecosystem is moving so fast you can't see what's already there.
 >
-> This is the story of local-brain: a Claude Code cost optimizer we built from scratch in September 2024, researched extensively in January 2026, and deprecated three weeks later when we discovered LiteLLM did everything we wanted—better.
+> This is the story of local-brain: a Claude Code cost optimizer we built from scratch in September 2025, researched extensively in January 2026, and deprecated three weeks later when we discovered LiteLLM did everything we wanted—better.
 
 ---
 
@@ -30,7 +30,7 @@
 ### The $50/Day Wake-Up Call
 
 **Personal story:**
-- Started using Claude Code in Aug 2024
+- Started using Claude Code in Aug 2025
 - First month: $100 (learning, experimentation)
 - Second month: $230 (getting productive)
 - Third month: $350 (full integration into workflow)
@@ -54,20 +54,20 @@ Most Claude Code requests don't need Opus-level intelligence:
 
 ## Section 2: The Solution We Built
 
-### The Iterative Journey (Sep 2024 - Jan 2026)
+### The Iterative Journey (Sep 2025 - Jan 2026)
 
 **This wasn't a linear process.** The project evolved through multiple pivots as we learned more:
 
-**September 2024: Cost Optimization**
+**September 2025: Cost Optimization**
 - Goal: Reduce API costs by delegating to local Ollama
 - Approach: Custom CLI with Smolagents
 
-**Oct-Nov 2024: Context & Security Pivots**
+**Oct-Nov 2025: Context & Security Pivots**
 - Discovered context efficiency mattered too
 - Got distracted by security (path jailing, sensitive files)
 - Built comprehensive security layer
 
-**December 2024: The Ollama Announcement**
+**December 2025: The Ollama Announcement**
 - Ollama v0.14.0 added Anthropic API compatibility
 - Could now use Claude Code directly with Ollama
 - Our delegation architecture suddenly seemed redundant
@@ -97,9 +97,9 @@ Ollama (free local models)
 - Integration with Claude Code via subprocess
 
 **Timeline:**
-- September 2024: Initial cost optimization idea
-- Oct-Nov 2024: Pivot to security/context optimization
-- December 2024: Ollama Anthropic API announcement (game changer)
+- September 2025: Initial cost optimization idea
+- Oct-Nov 2025: Pivot to security/context optimization
+- December 2025: Ollama Anthropic API announcement (game changer)
 - January 2026: Re-evaluation, LiteLLM discovery
 
 **What we were proud of:**
@@ -131,7 +131,7 @@ Ollama (free local models)
 
 ---
 
-### Pivot 2: The Ollama Announcement (Dec 2024)
+### Pivot 2: The Ollama Announcement (Dec 2025)
 
 **The bombshell:** Ollama v0.14.0 added native Anthropic Messages API support
 
@@ -204,8 +204,8 @@ export ANTHROPIC_API_KEY=ollama
 ### 1. The Ecosystem Moves FAST
 
 **Timeline:**
-- **Sep 2024:** Start building local-brain
-- **Dec 2024:** Ollama adds Anthropic API (architecture obsolete)
+- **Sep 2025:** Start building local-brain
+- **Dec 2025:** Ollama adds Anthropic API (architecture obsolete)
 - **Jan 2025:** Prompt caching GA (90% savings built-in)
 - **Jan 2026:** LiteLLM mature, production-ready
 
@@ -490,7 +490,7 @@ router_settings:
 ## Appendix: By the Numbers
 
 **Project Stats:**
-- **Timeline:** Sep 2024 - Jan 2026 (with gaps, not continuous)
+- **Timeline:** Sep 2025 - Jan 2026 (with gaps, not continuous)
 - **Code written:** ~3,500 lines (Python, YAML, docs)
 - **GitHub stars:** 47 (small but engaged community)
 - **PyPI downloads:** ~200/month

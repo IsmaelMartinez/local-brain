@@ -74,7 +74,7 @@ Local Ollama Models
 
 ## What Changed
 
-### December 2024: Ollama + Anthropic API Compatibility
+### December 2025: Ollama + Anthropic API Compatibility
 
 Ollama v0.14.0+ added native support for Anthropic's Messages API, enabling Claude Code to connect directly to local models:
 
@@ -217,8 +217,8 @@ The security model was over-engineered. Better approaches:
 ### 1. The Ecosystem Moves Fast
 
 **Timeline:**
-- **September 2024:** Local Brain started to solve delegation/cost problems
-- **December 2024:** Ollama adds Anthropic API compatibility (our core architecture obsolete)
+- **September 2025:** Local Brain started to solve delegation/cost problems
+- **December 2025:** Ollama adds Anthropic API compatibility (our core architecture obsolete)
 - **January 2025:** Prompt caching GA on Bedrock (90% cost reduction built-in)
 - **January 2026:** LiteLLM at 33K stars, production-ready for everything we tried to build
 
