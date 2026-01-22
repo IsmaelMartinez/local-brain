@@ -112,22 +112,27 @@ Ollama (free local models)
 
 ## Section 3: The Pivots
 
-### Pivot 1: Security Theater (Sep-Nov 2024)
+### Pivot 1: Architecture-Specific Security (Oct-Nov 2025)
 
 **Original goal:** Cost optimization
 
-**What happened:** Got distracted by security
+**What happened:** Added comprehensive security layer for smolagents
 
-**The rationalization:**
-> "If we're running local models, we need to prevent them from reading sensitive files like `.env` or SSH keys. Let's build path jailing!"
+**The context:**
+> "Smolagents executes code invisibly without user approval. We NEED path jailing, file blocking, and output truncation to prevent unintended file access."
 
-**The reality:**
-- Security at tool level is a band-aid
-- Real security: IAM, secrets vaults, least privilege
-- MCP servers had CVEs in path validation—ours would too
-- Over-engineered solution to non-problem
+**The implementation:**
+- Path jailing to restrict file system access
+- Sensitive file pattern blocking (`.env`, SSH keys, etc.)
+- Output truncation to prevent data leaks
+- Read-only operations with timeouts
 
-**Lesson learned:** Focus on actual problem, not hypothetical risks.
+**The lesson:**
+- This security WAS necessary for smolagents' invisible execution model
+- But it's NOT needed for Claude Code where users see and approve all operations
+- Security requirements are architecture-specific—don't carry them over blindly
+
+**Lesson learned:** Security features are context-dependent. What's essential in one architecture may be unnecessary in another.
 
 ---
 

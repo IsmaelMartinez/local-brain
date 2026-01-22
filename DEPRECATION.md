@@ -111,7 +111,7 @@ After extensive research into cost optimization at scale ($50/day → $1,500/mon
 |--------|-------------|---------|
 | **Routing** | Manual switching | Automatic, intelligent |
 | **Providers** | Ollama only | 100+ providers |
-| **Security** | Custom path jailing | IAM, budgets, rate limits |
+| **Use Case** | Smolagents sandboxing | Model routing/cost optimization |
 | **Team Support** | None | SSO, per-user budgets |
 | **Observability** | None | Prometheus, Langfuse, etc. |
 | **Maintenance** | Custom code | Production-ready, supported |
@@ -171,18 +171,25 @@ export ANTHROPIC_API_KEY="sk-anything"
 
 ### If You Were Using Local Brain for Security
 
-**Replace with: Proper IAM + MCP Servers**
+**Replace with: Nothing - Security Layer No Longer Needed**
 
-The security model was over-engineered. Better approaches:
+The security features (path jailing, file blocking, output truncation) were necessary **only because smolagents was executing code invisibly** without user visibility or control.
 
-1. **File access control:** Use OS-level permissions, not path jailing
-2. **Sensitive files:** Use `.gitignore` patterns, environment-based secrets management
-3. **Read-only operations:** Use Git worktrees, temporary clones
-4. **Code exploration:** Use existing MCP servers:
-   - [filesystem MCP](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) - Secure file access with roots
-   - [git MCP](https://github.com/modelcontextprotocol/servers/tree/main/src/git) - Safe git operations
+**Why it's no longer needed:**
+- **Claude Code**: You see and approve all operations before execution
+- **LiteLLM**: Acts as a model router/proxy, doesn't execute code
+- **No invisible execution**: Everything goes through Claude Code's standard tool execution with full visibility
 
-**Lesson learned:** Security at the tool level is a band-aid. Proper secrets management, IAM policies, and least-privilege principles are the real solution.
+**The new architecture:**
+```
+Claude Code (you see and control everything)
+     ↓
+LiteLLM (just routing, no execution)
+     ↓
+Multiple LLM Providers (Bedrock, Ollama, etc.)
+```
+
+**Lesson learned:** Security theater for a specific architecture (smolagents) doesn't transfer to different architectures (Claude Code). Each system has its own security model - don't recreate features that aren't needed.
 
 ---
 
@@ -242,20 +249,24 @@ The security model was over-engineered. Better approaches:
 
 ---
 
-### 3. Security Theater vs Real Security
+### 3. Context-Specific Security
 
-**Our approach:**
+**Our approach (for smolagents):**
 - Path jailing in Python
 - Sensitive file pattern matching
 - Output truncation
 - Custom sandbox
 
-**Reality:**
-- MCP servers had CVEs in path validation (we would too)
-- Real security: IAM policies, secrets vaults, least privilege
-- Tool-level security is defensive programming, not a security model
+**Why it was necessary:**
+- Smolagents executed code invisibly without user control
+- Needed sandboxing to prevent unintended file access
 
-**Lesson:** Focus on proper access control, not reinventing sandboxes.
+**Why it's not needed with Claude Code + LiteLLM:**
+- Claude Code: User sees and approves all operations
+- LiteLLM: Just a model router, doesn't execute code
+- No invisible code execution = no need for custom sandboxing
+
+**Lesson:** Security requirements depend on the architecture. Don't carry over security features from one system to another without validating they're still needed.
 
 ---
 
