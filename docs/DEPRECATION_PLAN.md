@@ -201,8 +201,8 @@ uv publish
 
 **Keep accessible:**
 - All ADRs (docs/adrs/)
-- Strategic pivot analysis (docs/STRATEGIC_PIVOT.md)
-- POC files (poc_agent_sdk.py)
+- Evaluation and learnings (DEPRECATION.md, docs/BLOG_POST_LEARNINGS.md)
+- LiteLLM migration guide (MIGRATION.md)
 - Original research notes
 
 **Add context:**

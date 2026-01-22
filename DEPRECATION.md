@@ -372,7 +372,7 @@ Your input helped validate the problem space and led us to discover LiteLLM as t
 
 **Migration:**
 - [MIGRATION.md](./MIGRATION.md) - Detailed LiteLLM setup guide
-- [docs/STRATEGIC_PIVOT.md](./docs/STRATEGIC_PIVOT.md) - Research findings
+- [docs/LITELLM_VALIDATION_PLAN.md](./docs/LITELLM_VALIDATION_PLAN.md) - Testing plan
 
 **LiteLLM:**
 - [GitHub](https://github.com/BerriAI/litellm)
