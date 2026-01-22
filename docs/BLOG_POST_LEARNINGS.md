@@ -67,7 +67,7 @@ Most Claude Code requests don't need Opus-level intelligence:
 - Got distracted by security (path jailing, sensitive files)
 - Built comprehensive security layer
 
-**December 2025: The Ollama Announcement**
+**January 16, 2026: The Ollama Announcement**
 - Ollama v0.14.0 added Anthropic API compatibility
 - Could now use Claude Code directly with Ollama
 - Our delegation architecture suddenly seemed redundant
@@ -99,7 +99,7 @@ Ollama (free local models)
 **Timeline:**
 - September 2025: Initial cost optimization idea
 - Oct-Nov 2025: Pivot to security/context optimization
-- December 2025: Ollama Anthropic API announcement (game changer)
+- January 16, 2026: Ollama Anthropic API announcement (game changer)
 - January 2026: Re-evaluation, LiteLLM discovery
 
 **What we were proud of:**
@@ -131,7 +131,7 @@ Ollama (free local models)
 
 ---
 
-### Pivot 2: The Ollama Announcement (Dec 2025)
+### Pivot 2: The Ollama Announcement (January 16, 2026)
 
 **The bombshell:** Ollama v0.14.0 added native Anthropic Messages API support
 
@@ -205,7 +205,7 @@ export ANTHROPIC_API_KEY=ollama
 
 **Timeline:**
 - **Sep 2025:** Start building local-brain
-- **Dec 2025:** Ollama adds Anthropic API (architecture obsolete)
+- **Jan 16, 2026:** Ollama adds Anthropic API (architecture obsolete)
 - **Jan 2025:** Prompt caching GA (90% savings built-in)
 - **Jan 2026:** LiteLLM mature, production-ready
 

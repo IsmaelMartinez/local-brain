@@ -38,7 +38,7 @@ Local Brain is being deprecated and archived in favor of LiteLLM, which provides
    - Production-ready (33K+ stars, active development)
 
 2. **Ecosystem made our approach obsolete:**
-   - Ollama added native Anthropic API support (Dec 2025)
+   - Ollama added native Anthropic API support (January 16, 2026)
    - Prompt caching provides 90% savings automatically (Jan 2025)
    - MCP ecosystem solved secure file access
    - Our custom architecture became unnecessary complexity
