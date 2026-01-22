@@ -1,10 +1,27 @@
-> [!WARNING]
-> **This is early experimental work — use it at your own risk!**
-> The API and features may change without notice.
+# ⚠️ DEPRECATED: This Project Has Been Archived
 
-# Local Brain — Claude Code Plugin Marketplace
+**We recommend using [LiteLLM](https://github.com/BerriAI/litellm) instead.**
 
-A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extends Claude with local capabilities. The first skill lets Claude delegate codebase exploration to local Ollama models.
+Local Brain is no longer maintained. After extensive research, we found that LiteLLM provides superior model routing, cost optimization (70-90% savings), and team features without the complexity of a custom CLI.
+
+**📖 Read:** [Why we deprecated](./DEPRECATION.md) • [Migration guide](./MIGRATION.md) • [Lessons learned](./docs/BLOG_POST_LEARNINGS.md)
+
+**Quick migration:**
+```bash
+pip install 'litellm[proxy]'
+litellm --model ollama/qwen2.5-coder:32b --port 4000
+export ANTHROPIC_BASE_URL=http://localhost:4000
+```
+
+---
+
+> [!NOTE]
+> **For Historical Reference:**
+> This repository is preserved as a learning resource. The code demonstrates LLM agent architecture, security considerations, and cost optimization research that led us to discover LiteLLM.
+
+# Local Brain — Claude Code Plugin Marketplace (Archived)
+
+A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extended Claude with local capabilities. Delegated codebase exploration to local Ollama models.
 
 ## Install Marketplace
 
