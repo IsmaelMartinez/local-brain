@@ -1,8 +1,48 @@
-# Project Deprecation Notice
+# Project Deprecation Notice (DRAFT - UNDER EVALUATION)
 
-**Status:** Archived as of January 2026
+**Status:** Evaluating deprecation as of January 2026
 
-**TL;DR:** Local Brain is being deprecated in favor of LiteLLM, which provides superior model routing, cost optimization, and multi-provider support without the complexity of a custom CLI tool.
+**TL;DR:** We're evaluating whether to deprecate Local Brain in favor of LiteLLM. Initial research suggests LiteLLM may provide superior model routing, cost optimization, and multi-provider support without the complexity of a custom CLI tool.
+
+**This document represents our HYPOTHESIS, not a final decision. We need to validate LiteLLM actually delivers on these promises before deprecating.**
+
+---
+
+## Validation Plan (DO THIS FIRST)
+
+Before deprecating, we need to TEST these claims:
+
+### Week 1-2: LiteLLM Evaluation
+1. **Setup LiteLLM** with Bedrock + Ollama routing
+2. **Test routing logic** - Does it actually route intelligently?
+3. **Verify cost tracking** - Are dashboards accurate?
+4. **Test caching** - Does semantic caching work as advertised?
+5. **Measure overhead** - What's the latency penalty?
+6. **Compare security** - Are we losing security features?
+
+### Week 3: Real-World Testing
+1. **Use LiteLLM for actual work** (not just demos)
+2. **Track costs daily** - Is it actually cheaper?
+3. **Monitor failures** - How often does routing fail?
+4. **Collect user feedback** - Is UX better or worse?
+
+### Decision Criteria
+
+**Proceed with deprecation IF:**
+- ✅ Cost savings ≥60% (validated, not projected)
+- ✅ Routing works reliably (>95% success rate)
+- ✅ Setup time <4 hours for new users
+- ✅ No major security regressions
+- ✅ User feedback positive
+
+**Keep local-brain IF:**
+- ❌ Cost savings <40% in practice
+- ❌ Routing frequently fails or needs manual intervention
+- ❌ Setup complexity too high
+- ❌ Security model fundamentally worse
+- ❌ Performance unacceptable
+
+**Current status:** HYPOTHESIS - needs validation
 
 ---
 

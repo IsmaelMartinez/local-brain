@@ -1,27 +1,24 @@
-# ⚠️ DEPRECATED: This Project Has Been Archived
+# ⚠️ EVALUATING DEPRECATION: Read Before Using
 
-**We recommend using [LiteLLM](https://github.com/BerriAI/litellm) instead.**
+**Status:** Under evaluation - may be deprecated in favor of [LiteLLM](https://github.com/BerriAI/litellm)
 
-Local Brain is no longer maintained. After extensive research, we found that LiteLLM provides superior model routing, cost optimization (70-90% savings), and team features without the complexity of a custom CLI.
+After extensive research into cost optimization ($50/day → $1,500/month), we discovered LiteLLM **may** provide superior model routing, team features, and 70-90% cost savings. We're currently **testing this hypothesis** before making a final decision.
 
-**📖 Read:** [Why we deprecated](./DEPRECATION.md) • [Migration guide](./MIGRATION.md) • [Lessons learned](./docs/BLOG_POST_LEARNINGS.md)
+**📖 Read:** [Evaluation plan](./DEPRECATION.md) • [LiteLLM comparison](./MIGRATION.md) • [Research findings](./docs/BLOG_POST_LEARNINGS.md)
 
-**Quick migration:**
-```bash
-pip install 'litellm[proxy]'
-litellm --model ollama/qwen2.5-coder:32b --port 4000
-export ANTHROPIC_BASE_URL=http://localhost:4000
-```
+> [!WARNING]
+> **This project may be deprecated soon.** If you're starting fresh, consider evaluating LiteLLM first:
+> ```bash
+> pip install 'litellm[proxy]'
+> litellm --model ollama/qwen2.5-coder:32b --port 4000
+> export ANTHROPIC_BASE_URL=http://localhost:4000
+> ```
 
 ---
 
-> [!NOTE]
-> **For Historical Reference:**
-> This repository is preserved as a learning resource. The code demonstrates LLM agent architecture, security considerations, and cost optimization research that led us to discover LiteLLM.
+# Local Brain — Claude Code Plugin Marketplace
 
-# Local Brain — Claude Code Plugin Marketplace (Archived)
-
-A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extended Claude with local capabilities. Delegated codebase exploration to local Ollama models.
+A [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugins) that extends Claude with local capabilities. Delegates codebase exploration to local Ollama models.
 
 ## Install Marketplace
 
