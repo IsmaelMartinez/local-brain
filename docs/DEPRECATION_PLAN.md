@@ -44,7 +44,7 @@ Local Brain is being deprecated and archived in favor of LiteLLM, which provides
    - Our custom architecture became unnecessary complexity
 
 3. **Better use of time:**
-   - 130 hours to build local-brain
+   - several months to build local-brain
    - 6 hours to deploy LiteLLM
    - Contributing to LiteLLM benefits entire community
 
@@ -316,7 +316,7 @@ Migration guide: [link to MIGRATION.md]
 - Offer help with migration
 - Keep documentation accessible
 
-### Risk: Lost work (130 hours)
+### Risk: Lost work (several months)
 **Mitigation:**
 - Frame as R&D investment (led to LiteLLM discovery)
 - Publish learnings (help others avoid same mistake)

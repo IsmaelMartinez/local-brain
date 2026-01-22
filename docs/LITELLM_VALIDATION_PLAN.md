@@ -12,7 +12,7 @@
 
 LiteLLM can provide:
 1. **Better cost savings** (70-90% vs our theoretical 40%)
-2. **Easier setup** (2-4 hours vs 130 hours to build)
+2. **Easier setup** (2-4 hours vs months of iterative development)
 3. **More features** (team management, observability, caching)
 4. **Equivalent or better security**
 5. **Production-ready reliability**

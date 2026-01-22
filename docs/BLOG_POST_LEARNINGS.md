@@ -54,7 +54,31 @@ Most Claude Code requests don't need Opus-level intelligence:
 
 ## Section 2: The Solution We Built
 
-### Architecture: Delegation to Local Models
+### The Iterative Journey (Sep 2024 - Jan 2026)
+
+**This wasn't a linear process.** The project evolved through multiple pivots as we learned more:
+
+**September 2024: Cost Optimization**
+- Goal: Reduce API costs by delegating to local Ollama
+- Approach: Custom CLI with Smolagents
+
+**Oct-Nov 2024: Context & Security Pivots**
+- Discovered context efficiency mattered too
+- Got distracted by security (path jailing, sensitive files)
+- Built comprehensive security layer
+
+**December 2024: The Ollama Announcement**
+- Ollama v0.14.0 added Anthropic API compatibility
+- Could now use Claude Code directly with Ollama
+- Our delegation architecture suddenly seemed redundant
+
+**January 2026: Re-evaluation**
+- Employer questioned $50/day costs
+- Deep research into optimization strategies
+- Discovered LiteLLM during research
+- Realized: maybe we should evaluate alternatives
+
+### Architecture: Delegation to Local Models (Original Approach)
 
 **The idea:**
 ```
@@ -72,12 +96,11 @@ Ollama (free local models)
 - AST-aware code search
 - Integration with Claude Code via subprocess
 
-**Time invested:**
-- Design: 40 hours
-- Implementation: 60 hours
-- Testing: 20 hours
-- Documentation: 10 hours
-- **Total: ~130 hours** (3+ weeks full-time)
+**Timeline:**
+- September 2024: Initial cost optimization idea
+- Oct-Nov 2024: Pivot to security/context optimization
+- December 2024: Ollama Anthropic API announcement (game changer)
+- January 2026: Re-evaluation, LiteLLM discovery
 
 **What we were proud of:**
 - Clean architecture (ADRs, separation of concerns)
@@ -148,7 +171,7 @@ export ANTHROPIC_API_KEY=ollama
    - Production-ready, actively maintained
 
 **The honest moment:**
-> "We spent 130 hours building something that already existed, better, for free."
+> "We spent several months building something that already existed, better, for free."
 
 ---
 
@@ -167,7 +190,7 @@ export ANTHROPIC_API_KEY=ollama
 | **Community** | 1 developer | 33K+ stars, active community |
 
 **Setup time comparison:**
-- local-brain: 130 hours to build
+- local-brain: several months to build
 - LiteLLM: 2-4 hours to configure
 
 **Cost savings:**
@@ -246,7 +269,7 @@ def safe_path(path: str) -> Path:
 ### 4. Build vs Buy (Even in Open Source)
 
 **Time breakdown:**
-- **Building local-brain:** 130 hours
+- **Building local-brain:** several months
 - **Learning LiteLLM:** 4 hours
 - **Configuring LiteLLM:** 2 hours
 
@@ -467,24 +490,27 @@ router_settings:
 ## Appendix: By the Numbers
 
 **Project Stats:**
+- **Timeline:** Sep 2024 - Jan 2026 (with gaps, not continuous)
 - **Code written:** ~3,500 lines (Python, YAML, docs)
-- **Time invested:** 130 hours
 - **GitHub stars:** 47 (small but engaged community)
 - **PyPI downloads:** ~200/month
-- **Issues closed:** 12
-- **Pull requests:** 8
+- **Major pivots:** 3 (cost → security → re-evaluation)
 
-**Cost Savings:**
-- **local-brain (theoretical):** 40% reduction
-- **LiteLLM (actual):** 78% reduction = **$164K/year** (50-person team)
+**Cost Savings (Projected):**
+- **local-brain (if it worked):** 40-60% reduction via delegation
+- **LiteLLM (if claims validated):** 70-90% reduction via multi-layer optimization
+- **Prompt caching (confirmed working):** 90% reduction on repeated context
 
-**Time to value:**
-- **local-brain:** 130 hours to build → 0 production value
-- **LiteLLM:** 6 hours to deploy → $164K/year savings
+**What We Actually Learned:**
+1. The ecosystem moves faster than side projects
+2. Cost optimization has layers (caching > routing > local models)
+3. Research time is never wasted (led to LiteLLM discovery)
+4. Failed products can succeed as learning experiences
 
-**ROI:**
-- **local-brain:** Negative (sunk cost)
-- **LiteLLM:** 130 hours research + 6 hours deployment = **$1,206/hour saved** ($164K ÷ 136 hours)
+**Current Status:**
+- local-brain: Under evaluation for deprecation
+- LiteLLM: Hypothesis to validate (2-3 week testing plan)
+- Decision: Pending real-world data
 
 ---
 

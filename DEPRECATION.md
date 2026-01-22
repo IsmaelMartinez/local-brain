@@ -283,7 +283,7 @@ The security model was over-engineered. Better approaches:
 - ~20 hours testing, debugging
 - ~10 hours documentation
 
-**Total: ~130 hours**
+**Total: ~several months of iteration**
 
 **LiteLLM setup time:** 2-4 hours
 
