@@ -86,7 +86,7 @@ Use LiteLLM for ALL Claude Code work for 5 days:
 - Subjective quality
 
 **Success criteria:**
-- ✅ Cost <$10/day (vs current $50/day = 80% savings)
+- ✅ Cost <$10/day (vs current ~$50/day baseline = 80% savings target)
 - ✅ Quality acceptable for 95%+ of tasks
 - ✅ Failures <5% of requests
 - ✅ No frustrating UX issues
@@ -231,7 +231,7 @@ If Phase 1-2 successful, test with 2-3 other team members.
 
 ### Daily Log Template
 ```markdown
-**Date:** 2026-01-XX
+**Date:** YYYY-MM-DD
 **Cost:** $X.XX
 **Requests:** XX total
 **Distribution:**

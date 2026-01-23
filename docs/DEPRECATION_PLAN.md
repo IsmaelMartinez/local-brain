@@ -1,7 +1,7 @@
 # Local Brain Deprecation Plan
 
 **Date:** January 2026
-**Status:** In Progress
+**Status:** Under Evaluation
 **Owner:** @IsmaelMartinez
 
 ---
@@ -113,13 +113,13 @@ migration instructions.
 ```
 
 **Create DEPRECATION.md:**
-- ✅ Done (see `/home/user/local-brain/DEPRECATION.md`)
+- ✅ Done (see `../DEPRECATION.md`)
 
 **Create MIGRATION.md:**
-- ✅ Done (see `/home/user/local-brain/MIGRATION.md`)
+- ✅ Done (see `../MIGRATION.md`)
 
 **Create BLOG_POST_LEARNINGS.md:**
-- ✅ Done (see `/home/user/local-brain/docs/BLOG_POST_LEARNINGS.md`)
+- ✅ Done (see `./BLOG_POST_LEARNINGS.md`)
 
 **GitHub Settings:**
 - Archive repository (Settings → Archive)
@@ -413,7 +413,7 @@ Migration guide: [link to MIGRATION.md]
 
 **Lessons for next time:**
 - Build vs buy applies to open source
-- 1 week of searching > 4 months of building
+- 1 week of searching saves 4 months of building
 - Failed projects can still provide value (learnings)
 
 ---

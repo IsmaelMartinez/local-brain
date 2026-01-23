@@ -206,7 +206,7 @@ version: '3.8'
 
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:v1.55.8  # Pin to specific version for reproducibility
     ports:
       - "4000:4000"
     volumes:
@@ -284,6 +284,9 @@ claude --model claude-opus "review this security-sensitive code"
 ### View Usage Dashboard
 
 LiteLLM provides a web UI at `http://localhost:4000/ui` showing:
+
+> Note: The UI may require additional configuration (authentication, HTTPS) depending on your deployment environment. See [LiteLLM UI docs](https://docs.litellm.ai/docs/proxy/ui) for details.
+
 - Total spend
 - Cost per model
 - Cost per user (if using API keys)
@@ -504,6 +507,8 @@ redis-cli ping  # Should return PONG
 ---
 
 ## Cost Savings Examples
+
+> **Note:** The following examples use illustrative figures to demonstrate potential savings. Actual costs depend on your token volumes, context window sizes, and current provider pricing. These are hypothetical scenarios showing the *pattern* of savings, not exact predictions.
 
 ### Example 1: Solo Developer
 

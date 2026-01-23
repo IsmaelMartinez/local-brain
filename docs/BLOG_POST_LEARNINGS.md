@@ -45,9 +45,9 @@
 **The core insight:**
 ```
 Most Claude Code requests don't need Opus-level intelligence:
-- "List all Python files" → overkill for $78
-- "Show git diff" → overkill for $78
-- "Add docstrings" → overkill for $78
+- "List all Python files" → simple task, expensive model
+- "Show git diff" → simple task, expensive model
+- "Add docstrings" → simple task, expensive model
 ```
 
 ---
@@ -213,6 +213,8 @@ export ANTHROPIC_API_KEY=ollama
 - **Jan 16, 2026:** Ollama adds Anthropic API (architecture obsolete)
 - **Jan 2025:** Prompt caching GA (90% savings built-in)
 - **Jan 2026:** LiteLLM mature, production-ready
+
+_Note: Prompt caching was available before we started building. We should have validated existing solutions first._
 
 **Lesson:** In fast-moving ecosystems, validate that problems STILL exist before building solutions.
 

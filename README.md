@@ -13,6 +13,7 @@ After extensive research into cost optimization ($50/day → $1,500/month), we d
 > litellm --model ollama/qwen2.5-coder:32b --port 4000
 > export ANTHROPIC_BASE_URL=http://localhost:4000
 > ```
+> Note: local-brain remains fully functional during evaluation. This notice is for transparency about our ongoing assessment.
 
 ---
 

@@ -118,7 +118,7 @@ After extensive research into cost optimization at scale ($50/day → $1,500/mon
 | **Cost Tracking** | None | Built-in dashboards |
 | **Caching** | None | Redis, semantic caching |
 
-**The honest assessment:** LiteLLM is what we SHOULD have built, but the open-source community already did it better.
+**Summary:** LiteLLM is what we SHOULD have built, but the open-source community already did it better.
 
 ---
 
@@ -225,7 +225,7 @@ Multiple LLM Providers (Bedrock, Ollama, etc.)
 
 **Timeline:**
 - **September 2025:** Local Brain started to solve delegation/cost problems
-- **January 16, 2026: Ollama adds Anthropic API compatibility (our core architecture obsolete)
+- **January 16, 2026:** Ollama adds Anthropic API compatibility (our core architecture obsolete)
 - **January 2025:** Prompt caching GA on Bedrock (90% cost reduction built-in)
 - **January 2026:** LiteLLM at 33K stars, production-ready for everything we tried to build
 
