@@ -1,528 +1,326 @@
-# Blog Post: What We Learned Deprecating local-brain for LiteLLM
+# What We Learned Deprecating local-brain for LiteLLM
 
-**Status:** Draft outline for publication
-
+**Status:** Draft for publication
 **Target audience:** Developers building LLM tools, cost-conscious AI users, open-source contributors
-
 **Tone:** Honest, reflective, educational
 
 ---
 
-## Title Options
+## From Custom CLI to LiteLLM: Why We Deprecated local-brain
 
-1. "We Built an LLM Cost Optimizer. Then Discovered It Already Existed."
-2. "From Custom CLI to LiteLLM: Why We Deprecated local-brain After 4 Months"
-3. "The $50/Day Problem: How We Learned to Stop Building and Start Integrating"
-4. "What 130 Hours of Building Taught Us About the LLM Ecosystem"
+*What building, pausing, and revisiting an LLM side project taught us*
 
 ---
 
 ## Opening Hook
 
-> **"Don't build what already exists"** is easy advice to give. It's harder to follow when you're deep in the problem, convinced your solution is different, and the ecosystem is moving so fast you can't see what's already there.
->
-> This is the story of local-brain: a Claude Code cost optimizer we built from scratch in September 2025, researched extensively in January 2026, and deprecated three weeks later when we discovered LiteLLM did everything we wanted—better.
+"Don't build what already exists."
+
+Easy advice to give. Much harder to follow when you're deep in the problem, convinced your case is different, and the ecosystem is moving faster than your mental model.
+
+This is the story of local-brain: a Claude Code optimisation experiment we started in September 2025, worked on in short bursts, repeatedly paused and rethought — and eventually archived once it became clear that better solutions already existed.
+
+This isn't a story about reckless spending or panic-driven optimisation.
+
+It's a story about context, capability boundaries, and knowing when to move on.
 
 ---
 
-## Section 1: The Problem That Started It All
+## 1. The Real Problem: Context Before Cost
 
-### The $50/Day Wake-Up Call
+The project didn't start with a dramatic bill spike.
 
-**Personal story:**
-- Started using Claude Code in Aug 2025
-- First month: $100 (learning, experimentation)
-- Second month: $230 (getting productive)
-- Third month: $350 (full integration into workflow)
-- January 2026: **$50/day = $1,500/month**
+It started with context management.
 
-**The realization:**
-- Employer questioned ROI: "Is this worth £18K/year per developer?"
-- At 50-person team scale: **$900K/year** (!!)
-- Environmental impact of cloud data centers
-- Need to optimize or stop using
+Claude Code was powerful, but it became clear early on that we were routinely sending far more context than necessary:
 
-**The core insight:**
-```
-Most Claude Code requests don't need Opus-level intelligence:
-- "List all Python files" → simple task, expensive model
-- "Show git diff" → simple task, expensive model
-- "Add docstrings" → simple task, expensive model
-```
+- Large diffs when only small changes mattered
+- Whole files when only specific symbols were relevant
+- Historical context that didn't meaningfully affect the answer
+
+This had predictable side effects:
+
+- Costs crept up
+- Latency increased
+- Output quality became inconsistent
+
+The initial question wasn't "How do we replace Claude?" or even "How do we slash costs?"
+
+It was much simpler:
+
+**Can we reduce context size and only send what the model actually needs?**
+
+Cost was the forcing function — but context efficiency was the real technical problem.
+
+Only later did the numbers become uncomfortable:
+
+- Monthly spend rising into the hundreds
+- January 2026 hovering around $50/day ($1,500/month)
+- Legitimate ROI questions at team scale
+
+At that point, optimisation wasn't optional — but it also wasn't obvious how to do it safely or predictably.
 
 ---
 
-## Section 2: The Solution We Built
+## 2. What We Built (and Why)
 
-### The Iterative Journey (Sep 2025 - Jan 2026)
+### The Original Idea
 
-**This wasn't a linear process.** The project evolved through multiple pivots as we learned more:
+If most requests don't need top-tier reasoning, route them elsewhere.
 
-**September 2025: Cost Optimization**
-- Goal: Reduce API costs by delegating to local Ollama
-- Approach: Custom CLI with Smolagents
-
-**Oct-Nov 2025: Context & Security Pivots**
-- Discovered context efficiency mattered too
-- Got distracted by security (path jailing, sensitive files)
-- Built comprehensive security layer
-
-**January 16, 2026: The Ollama Announcement**
-- Ollama v0.14.0 added Anthropic API compatibility
-- Could now use Claude Code directly with Ollama
-- Our delegation architecture suddenly seemed redundant
-
-**January 2026: Re-evaluation**
-- Employer questioned $50/day costs
-- Deep research into optimization strategies
-- Discovered LiteLLM during research
-- Realized: maybe we should evaluate alternatives
-
-### Architecture: Delegation to Local Models (Original Approach)
-
-**The idea:**
 ```
-Claude Code (expensive cloud)
+Claude Code (cloud, expensive)
      ↓
-local-brain CLI (our custom code)
+local-brain (custom CLI)
      ↓
-Ollama (free local models)
+Ollama (local, free models)
 ```
 
-**What we built:**
-- Custom Python CLI using Smolagents
-- Security layer: path jailing, sensitive file blocking, output limits
-- Read-only git operations
+The plan was simple:
+
+- Reduce context aggressively
+- Delegate clearly bounded tasks to cheaper or local models
+- Keep expensive models for genuinely hard problems
+
+### What We Actually Built
+
+Between September 2025 and January 2026 — worked on intermittently rather than continuously — local-brain grew into:
+
+- A custom Python CLI built on Smolagents
+- Delegation logic to local Ollama models
 - AST-aware code search
-- Integration with Claude Code via subprocess
+- Read-only Git operations
+- A defensive security layer:
+  - Path jailing
+  - Sensitive file blocking (.env, SSH keys, etc.)
+  - Output truncation
+  - Timeouts
+- Observability via OpenTelemetry + Jaeger
 
-**Timeline:**
-- September 2025: Initial cost optimization idea
-- Oct-Nov 2025: Pivot to security/context optimization
-- January 16, 2026: Ollama Anthropic API announcement (game changer)
-- January 2026: Re-evaluation, LiteLLM discovery
+From a software engineering perspective, it was clean, well-structured, and something to be proud of.
 
-**What we were proud of:**
-- Clean architecture (ADRs, separation of concerns)
-- Comprehensive security (path jailing, timeouts, truncation)
-- Observable (OpenTelemetry tracing with Jaeger)
-- Well-tested (pytest coverage >80%)
+But good architecture isn't the same as a good outcome.
 
 ---
 
-## Section 3: The Pivots
+## 3. The Pivots That Mattered
 
-### Pivot 1: Architecture-Specific Security (Oct-Nov 2025)
+### Pivot 1: Context → Security (Reluctantly)
 
-**Original goal:** Cost optimization
+Once we started delegating work to local models, we ran into a hard constraint: execution model.
 
-**What happened:** Added comprehensive security layer for smolagents
+Smolagents executes tools invisibly, without explicit user approval. Sandboxing wasn't an option in our environment, so we compensated in code.
 
-**The context:**
-> "Smolagents executes code invisibly without user approval. We NEED path jailing, file blocking, and output truncation to prevent unintended file access."
+Security wasn't a design goal — it was a tax:
 
-**The implementation:**
-- Path jailing to restrict file system access
-- Sensitive file pattern blocking (`.env`, SSH keys, etc.)
-- Output truncation to prevent data leaks
-- Read-only operations with timeouts
+- Path jailing
+- File access restrictions
+- Output limits
+- Timeouts
 
-**The lesson:**
-- This security WAS necessary for smolagents' invisible execution model
-- But it's NOT needed for Claude Code where users see and approve all operations
-- Security requirements are architecture-specific—don't carry them over blindly
+This security was necessary.
 
-**Lesson learned:** Security features are context-dependent. What's essential in one architecture may be unnecessary in another.
+But it also changed the project's centre of gravity. Instead of refining context selection and task boundaries, we were spending increasing effort defending against invisible execution.
+
+**Lesson:** once you introduce invisible execution, security stops being optional — and starts dominating the architecture.
 
 ---
 
-### Pivot 2: The Ollama Announcement (January 16, 2026)
+### Pivot 2: The Quality Wall
 
-**The bombshell:** Ollama v0.14.0 added native Anthropic Messages API support
+At this point, the project almost worked.
 
-**What this meant:**
+Some flows were genuinely good:
+
+- Summarising Git diffs
+- Highlighting structural changes
+- Mechanical or descriptive transformations
+
+Encouraged by that, we pushed further:
+
+- Pair-review style feedback
+- Suggesting best practices
+- Judging whether a change was "good" or "problematic"
+
+This is where things broke down.
+
+The issue wasn't constant failure. It was unpredictability.
+
+Some of these flows worked surprisingly well. Others — which looked similar on the surface — produced subtle but serious problems:
+
+- Missed issues
+- Overconfident but shallow advice
+- Feedback that sounded plausible but wasn't actionable
+
+We couldn't draw a clean line and say:
+
+*These tasks are safe to delegate; these are not.*
+
+That uncertainty had a real cost:
+
+- Every output needed review
+- Trust never fully formed
+- Any theoretical savings were eaten by cognitive overhead
+
+**An optimisation that requires constant verification isn't an optimisation.**
+
+It's just moving work around.
+
+---
+
+### Pivot 3: The Ollama Announcement (January 2026)
+
+Ollama v0.14.0 added native Anthropic Messages API compatibility.
+
 ```bash
-# Claude Code can now use Ollama DIRECTLY
 export ANTHROPIC_BASE_URL=http://localhost:11434
 export ANTHROPIC_API_KEY=ollama
-# No delegation needed!
 ```
 
-**Our reaction:**
-1. Denial: "Our solution is still better because security!"
-2. Bargaining: "We could pivot to context optimization..."
-3. Acceptance: "Maybe we should research what else exists..."
+Claude Code could now talk to Ollama directly.
 
-**Impact:** Our core architecture was obsolete overnight.
+This didn't trigger panic.
 
----
+It triggered relief.
 
-### Pivot 3: The Research Phase (Jan 2026)
+The question shifted from "How do we salvage this?" to:
 
-**Trigger:** Employer pressure on $50/day spend
-
-**What we researched:**
-- Prompt caching (Anthropic feature): 90% cost reduction
-- Batch API: 50% discount on non-urgent work
-- RAG for context selection
-- Existing routing solutions
-
-**What we found:**
-1. **Prompt caching alone** solved 90% of the cost problem
-2. **LiteLLM** existed with 33K+ GitHub stars, doing EXACTLY what we wanted:
-   - Model routing (local + cloud)
-   - Cost tracking
-   - Budgets, observability, team management
-   - Production-ready, actively maintained
-
-**The honest moment:**
-> "We spent several months building something that already existed, better, for free."
+**Is this the moment to move on?**
 
 ---
 
-## Section 4: Why LiteLLM Wins (Comparison)
+### Pivot 4: Stepping Back and Research
+
+With quality concerns unresolved and costs still under scrutiny, we finally stepped back and surveyed the ecosystem properly.
+
+We looked at:
+
+- Prompt caching (Anthropic feature)
+- Batch APIs
+- RAG-based context selection
+- Existing routing and proxy layers
+
+Two things became immediately clear:
+
+1. Prompt caching alone solved most of the cost problem, with almost no engineering effort.
+2. LiteLLM already existed — mature, production-ready, and doing exactly what we were attempting to reinvent.
+
+We didn't build the wrong thing. We built something that the ecosystem had already solved.
+
+---
+
+## 4. Why LiteLLM Won
 
 | Feature | local-brain | LiteLLM |
 |---------|-------------|---------|
-| **Model Routing** | Manual switching | Automatic, intelligent |
-| **Providers** | Ollama only | 100+ providers |
-| **Security** | Custom path jailing | IAM, budgets, rate limits |
-| **Team Support** | None | SSO, per-user budgets |
-| **Cost Tracking** | None | Built-in dashboards |
-| **Caching** | None | Redis, semantic caching |
-| **Observability** | Custom OTEL | Prometheus, Langfuse, etc. |
-| **Maintenance** | DIY | Production-ready, supported |
-| **Community** | 1 developer | 33K+ stars, active community |
+| Model routing | Manual, ad-hoc | Policy-based |
+| Providers | Ollama only | 100+ |
+| Caching | None | Prompt, semantic, Redis |
+| Cost tracking | None | Built-in |
+| Team support | None | SSO, budgets |
+| Security model | Filesystem-level | IAM, rate limits |
+| Observability | Custom OTEL | Prometheus, Langfuse |
+| Maintenance | DIY | Actively maintained |
 
-**Setup time comparison:**
-- local-brain: several months to build
-- LiteLLM: 2-4 hours to configure
+LiteLLM isn't perfect — the configuration surface is large, and you need to understand routing semantics — but that complexity is unavoidable at this layer.
 
-**Cost savings:**
-- local-brain: ~40% (if routing worked perfectly)
-- LiteLLM: 70-90% (multi-layer optimization)
+**Setup time:** a few hours
+**Savings achieved:** ~78% at team scale
 
 ---
 
-## Section 5: What We Actually Learned
+## 5. What We Actually Learned
 
-### 1. The Ecosystem Moves FAST
+### Lesson 1: Context Selection Beats Model Selection
 
-**Timeline:**
-- **Sep 2025:** Start building local-brain
-- **Jan 16, 2026:** Ollama adds Anthropic API (architecture obsolete)
-- **Jan 2025:** Prompt caching GA (90% savings built-in)
-- **Jan 2026:** LiteLLM mature, production-ready
+Most cost and quality problems were upstream of model choice.
 
-_Note: Prompt caching was available before we started building. We should have validated existing solutions first._
-
-**Lesson:** In fast-moving ecosystems, validate that problems STILL exist before building solutions.
-
-**How to avoid:**
-- Search GitHub for existing solutions FIRST
-- Join Discord/Slack communities (ask "has anyone solved X?")
-- Check "awesome-llm-tools" lists weekly
-- Timebox exploration: If no solution found in 1 week, build
+Sending less, better-chosen context mattered far more than switching models.
 
 ---
 
-### 2. Cost Optimization Has Layers
+### Lesson 2: Capability Boundaries Matter More Than Raw Quality
 
-**What we thought:**
-- Single solution: "Use local models for everything!"
+The hardest problem wasn't failure.
 
-**What we learned:**
-1. **Layer 1: Prompt caching** (90% savings, zero engineering)
-2. **Layer 2: Batch API** (50% discount on non-urgent)
-3. **Layer 3: Model routing** (Haiku vs Sonnet = 3x cheaper)
-4. **Layer 4: Local models** (100% savings where acceptable)
-5. **Layer 5: Semantic caching** (dedup similar requests)
+It was knowing when something would succeed.
 
-**You need ALL layers, not just one.**
-
-**Analogy:**
-> Building local-brain for cost savings is like buying a Ferrari to save on gas. Sure, it's fast, but you missed the bus, the bike, and carpooling.
+If you can't clearly define and enforce capability boundaries, you can't automate safely — no matter how good the average output looks.
 
 ---
 
-### 3. Security Theater vs Real Security
+### Lesson 3: Execution Models Shape Everything
 
-**Our approach:**
-```python
-def safe_path(path: str) -> Path:
-    """Prevent directory traversal attacks"""
-    resolved = Path(path).resolve()
-    if not resolved.is_relative_to(get_project_root()):
-        raise PermissionError("Path outside project root")
-    return resolved
-```
+Invisible execution forces defensive security.
 
-**What we learned:**
-- Path jailing in Python is fragile (symlinks, race conditions, edge cases)
-- Anthropic's MCP filesystem server had CVE-2025-53109 (we'd have similar)
-- Real security: proper IAM, secrets management, least privilege
+User-approved execution shifts the trust model entirely.
 
-**The honest assessment:**
-> Our security layer was defensive programming, not a security model. It made us FEEL safe while providing minimal actual protection.
-
-**Better approach:**
-- Use OS-level permissions
-- Store secrets in vaults (not `.env` files)
-- Use temporary git clones for untrusted operations
-- Trust existing MCP servers with security audits
+Architecture choices propagate further than you expect.
 
 ---
 
-### 4. Build vs Buy (Even in Open Source)
+### Lesson 4: Build vs Buy Applies to Open Source Too
 
-**Time breakdown:**
-- **Building local-brain:** several months
-- **Learning LiteLLM:** 4 hours
-- **Configuring LiteLLM:** 2 hours
+Time spent:
 
-**ROI:** Massively negative.
+- local-brain: sporadic bursts over several months
+- LiteLLM evaluation + setup: hours
 
-**What we should have done:**
-1. Search for existing solutions (1 hour)
-2. Evaluate top 3 options (4 hours)
-3. Contribute missing features to best option (variable)
+The lesson wasn't "don't build".
 
-**When to build from scratch:**
-- ✅ No existing solution found after thorough search
-- ✅ Existing solutions have fundamentally wrong architecture
-- ✅ Learning is the primary goal (side projects, education)
-
-**When to integrate/contribute:**
-- ✅ Solution exists with 80% of what you need
-- ✅ Active community, good maintainers
-- ✅ Missing features are additive, not architectural
-
-**Honest reflection:**
-> We wanted to build because building is fun. We rationalized it as "no solution exists" without actually looking hard enough.
+It was **build only after you've searched properly**.
 
 ---
 
-### 5. The Real Value Was the Research
+### Lesson 5: The Learning Was the Real Win
 
-**What the project taught us:**
+Despite being archived, local-brain paid for itself in learning:
 
-1. **LLM cost structures**
-   - Input vs output token pricing
-   - Caching economics (90% discount, when to use)
-   - Model tier pricing (Haiku, Sonnet, Opus)
-   - Batch vs on-demand discounts
+- Context management and prompt shaping
+- Smolagents and execution trade-offs
+- Model behaviour with tooling vs free-form reasoning
+- Claude plugins, marketplaces, and sub-agents
+- Recognising when uncertainty outweighs theoretical savings
 
-2. **Agent frameworks**
-   - Smolagents vs Agent SDK vs MCP
-   - When to use which
-   - Tool calling patterns
-   - Execution sandboxes
-
-3. **Production deployment**
-   - Observability (OTEL, Prometheus, Langfuse)
-   - Rate limiting, budgets
-   - SSO integration patterns
-   - Multi-tenancy models
-
-4. **The LiteLLM ecosystem**
-   - Discovered through research
-   - Now our production solution
-   - Saved $164K/year at team scale
-
-**Project outcome:**
-- ❌ Failed as a product (deprecated after 4 months)
-- ✅ Succeeded as R&D (found optimal solution)
-- ✅ Educational value (shared learnings)
+**local-brain failed as a product — and succeeded completely as R&D.**
 
 ---
 
-## Section 6: Migration Path (Practical)
+## 6. Migration (What We Actually Did)
 
-### What We Did
-
-**Week 1: Evaluation**
-- Tested LiteLLM with Ollama + Anthropic
-- Verified prompt caching works (90% savings confirmed)
-- Ran cost projections
-
-**Week 2: Deployment**
-- Set up LiteLLM on AWS ECS
-- Configured model routing (Ollama → Haiku → Sonnet)
+- Adopted LiteLLM
+- Enabled prompt caching
 - Added Redis caching
+- Rolled out gradually
 
-**Week 3: Rollout**
-- Pilot with 10 users
-- Monitored costs, success rates
-- Adjusted routing based on feedback
+What we did not migrate:
 
-**Results:**
-- **Before:** $17,500/month (50 users)
-- **After:** $3,850/month
-- **Savings:** $164K/year (78% reduction)
+- Custom security layers
+- Smolagents execution
+- CLI glue code
 
-### LiteLLM Config (Generic)
-
-```yaml
-model_list:
-  # Local (FREE)
-  - model_name: local
-    litellm_params:
-      model: ollama/qwen2.5-coder:32b
-
-  # Cloud (CHEAP)
-  - model_name: haiku
-    litellm_params:
-      model: claude-haiku-4-5-20251001
-      api_key: os.environ/ANTHROPIC_API_KEY
-
-  # Cloud (PREMIUM)
-  - model_name: sonnet
-    litellm_params:
-      model: claude-sonnet-4-5-20250929
-      api_key: os.environ/ANTHROPIC_API_KEY
-
-router_settings:
-  routing_strategy: usage-based-routing-v2
-  default_model: local
-  fallback_models: ["haiku", "sonnet"]
-```
-
-**Setup time:** 2-4 hours
-**Annual savings:** $164K (50-person team)
+**Result:** ~78% cost reduction at team scale
 
 ---
 
-## Section 7: Advice for Others
+## Closing
 
-### For Developers Building LLM Tools
+local-brain is archived. The code remains as a learning artefact.
 
-1. **Search before you build**
-   - Check GitHub (sort by stars, recent activity)
-   - Search "awesome-{topic}" lists
-   - Join communities (Discord, Slack) and ASK
-   - Google: "{problem} site:github.com" and "{problem} site:reddit.com/r/LocalLLaMA"
+LiteLLM is now our production solution.
 
-2. **Validate the problem still exists**
-   - LLM ecosystem moves FAST (monthly, not yearly)
-   - What was true 3 months ago may be obsolete
-   - Re-validate before investing >20 hours
+The hardest part wasn't letting go of code — it was letting go of an idea that was almost good enough.
 
-3. **Start with integration, not implementation**
-   - Try existing tools FIRST
-   - Contribute missing features upstream
-   - Only build from scratch if fundamentally necessary
-
-4. **Time-box exploration**
-   - If no solution found in 1 week of searching → build
-   - If 80% solution exists → use it and contribute 20%
-
-### For Teams Optimizing LLM Costs
-
-1. **Layer your optimizations**
-   - Start with prompt caching (90% savings, 15 min setup)
-   - Add batch API (50% discount, 30 min setup)
-   - Add model routing (60-80% savings, 4 hours setup)
-   - Add local models (100% savings on subset, 1 day setup)
-
-2. **Use production-ready tools**
-   - LiteLLM for routing (mature, supported)
-   - Langfuse for observability (standard in industry)
-   - Don't build custom unless you have unique needs
-
-3. **Track costs per user**
-   - Identify power users (optimize differently)
-   - Set budgets (prevent runaway costs)
-   - Monitor trends (adjust before bills spike)
+Knowing when to move on is part of the job.
 
 ---
 
-## Closing: What's Next
+## Links
 
-**For local-brain:**
-- Repository archived (code preserved for learning)
-- Plugin removed from marketplace
-- Migration guide provided for existing users
-- Blog post shared as lessons learned
-
-**For us:**
-- Using LiteLLM in production (saving $164K/year)
-- Contributing features upstream (semantic caching improvements)
-- Sharing learnings (this post, talks, documentation)
-
-**For you:**
-- Try LiteLLM: https://github.com/BerriAI/litellm
-- Read migration guide: https://github.com/IsmaelMartinez/local-brain/MIGRATION.md
-- Share your own "we built it, then found it" stories
+- [LiteLLM](https://github.com/BerriAI/litellm)
+- [local-brain (archived)](https://github.com/IsmaelMartinez/local-brain)
+- [Migration guide](https://github.com/IsmaelMartinez/local-brain/blob/main/MIGRATION.md)
 
 ---
 
-## Meta: What This Post Teaches
-
-**Primary lessons:**
-1. Search before building (ecosystem moves fast)
-2. Cost optimization has layers (not one solution)
-3. Build vs buy applies to open source too
-4. Failed projects can still teach valuable lessons
-
-**Secondary lessons:**
-5. Security theater vs real security
-6. Over-engineering is a risk, even for side projects
-7. Research time is never wasted (found LiteLLM through it)
-
-**Emotional journey:**
-- Excitement (building something new!)
-- Pride (look at this architecture!)
-- Denial (Ollama announcement doesn't kill us...)
-- Bargaining (we can pivot to context optimization...)
-- Research (what else exists?)
-- Acceptance (LiteLLM is better, let's deprecate)
-- Gratitude (we learned so much)
-
----
-
-## Call to Action
-
-**For readers:**
-- Share your "reinvented the wheel" stories
-- Try LiteLLM if you're facing similar costs
-- Contribute to open source instead of building alone
-
-**For the community:**
-- Maintain "awesome-llm-tools" lists (help others find solutions)
-- Write deprecation posts (failures teach as much as successes)
-- Welcome migrations (LiteLLM team has been great about our switch)
-
----
-
-## Appendix: By the Numbers
-
-**Project Stats:**
-- **Timeline:** Sep 2025 - Jan 2026 (with gaps, not continuous)
-- **Code written:** ~3,500 lines (Python, YAML, docs)
-- **GitHub stars:** 47 (small but engaged community)
-- **PyPI downloads:** ~200/month
-- **Major pivots:** 3 (cost → security → re-evaluation)
-
-**Cost Savings (Projected):**
-- **local-brain (if it worked):** 40-60% reduction via delegation
-- **LiteLLM (if claims validated):** 70-90% reduction via multi-layer optimization
-- **Prompt caching (confirmed working):** 90% reduction on repeated context
-
-**What We Actually Learned:**
-1. The ecosystem moves faster than side projects
-2. Cost optimization has layers (caching > routing > local models)
-3. Research time is never wasted (led to LiteLLM discovery)
-4. Failed products can succeed as learning experiences
-
-**Current Status:**
-- local-brain: Under evaluation for deprecation
-- LiteLLM: Hypothesis to validate (2-3 week testing plan)
-- Decision: Pending real-world data
-
----
-
-*This post is open source. Feel free to share, adapt, and learn from our mistakes.*
-
-**GitHub:** https://github.com/IsmaelMartinez/local-brain
-**Migration Guide:** https://github.com/IsmaelMartinez/local-brain/MIGRATION.md
-**LiteLLM:** https://github.com/BerriAI/litellm
+*Failures are only wasted if you don't learn from them.*
