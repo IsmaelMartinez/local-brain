@@ -10,6 +10,7 @@ This folder contains strategic research, analysis, and roadmap documents for the
 | [002-delegation-research.md](./002-delegation-research.md) | Analysis of local-brain vs Claude Code delegation patterns and optimal use cases | Active |
 | [003-model-evaluation-checklist.md](./003-model-evaluation-checklist.md) | Testing framework to evaluate local models for tool-calling capability | Active |
 | [004-model-performance-comparison.md](./004-model-performance-comparison.md) | Benchmark results comparing 7 Ollama models for local-brain compatibility | Active |
+| [005-litellm-ollama-routing-subagents.md](./005-litellm-ollama-routing-subagents.md) | Evaluation of LiteLLM routing for Ollama models and smolagents sub-agent orchestration | Active |
 
 ## Purpose
 
