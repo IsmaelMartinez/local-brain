@@ -1,4 +1,4 @@
-# 005 - LiteLLM Routing for Ollama + Sub-Agent Orchestration
+# 005 - Can LiteLLM/Ollama Replace Local-Brain?
 
 **Date:** 2026-02-12
 **Status:** Evaluation
@@ -6,114 +6,124 @@
 
 ## Problem Statement
 
-Local-brain currently uses a single Ollama model per invocation via `LiteLLMModel`. Two questions:
+We already use Bedrock models via LiteLLM for cloud work. Can we **eliminate local-brain entirely** by using LiteLLM and/or Ollama directly — particularly for sub-agent delegation from Claude Code?
 
-1. **Can LiteLLM route between multiple Ollama models** (e.g., tier-based routing, fallbacks)?
-2. **How do we run sub-agents** with smolagents using this configuration?
+Local-brain currently provides:
+1. A multi-step **agent loop** (smolagents CodeAgent) where the local model autonomously decides which tools to call
+2. **9 codebase tools** (read files, search code, git operations)
+3. **Security** (path jailing, output truncation, sensitive file blocking)
+4. A **Claude Code skill** (`/local-brain`) so Claude can delegate tasks
 
-The core constraint: local Ollama models have limited tool-calling reliability (only ~43% of tested models work), and the `CodeAgent` + `code_block_tags="markdown"` workaround is essential.
-
-## Current Architecture
-
-```
-CLI (click)
-  → select single model (models.py)
-    → LiteLLMModel(model_id="ollama_chat/{model}", api_base="http://localhost:11434")
-      → CodeAgent(tools=ALL_TOOLS, code_block_tags="markdown")
-        → agent.run(prompt)
-```
-
-- **smolagents 1.23.0** installed
-- **litellm >= 1.0.0** dependency
-- Single model, single agent, no routing or fallback
+The question: which of these can off-the-shelf components replace?
 
 ---
 
-## Finding 1: LiteLLM Can Route Ollama Models
+## What Local-Brain Actually Does (The Agent Loop)
 
-LiteLLM has a `Router` class that supports model routing, fallbacks, and load balancing. It works with Ollama via the `ollama_chat/` prefix.
-
-### LiteLLM Router Configuration
-
-```python
-from litellm import Router
-
-router = Router(
-    model_list=[
-        {
-            "model_name": "local-large",
-            "litellm_params": {
-                "model": "ollama_chat/qwen3:30b",
-                "api_base": "http://localhost:11434",
-            },
-        },
-        {
-            "model_name": "local-small",
-            "litellm_params": {
-                "model": "ollama_chat/qwen2.5:3b",
-                "api_base": "http://localhost:11434",
-            },
-        },
-    ],
-    default_fallbacks=["local-small"],  # fallback if primary fails
-    num_retries=2,
-    timeout=60,
-)
-
-# Use like standard litellm.completion()
-response = router.completion(
-    model="local-large",
-    messages=[{"role": "user", "content": "Hello"}],
-)
+```
+Claude Code: "What changed in security.py?"
+  → /local-brain "What changed in security.py?"
+    → Ollama (qwen3:30b) thinks...
+      Step 1: calls git_log(5)        → sees recent commits
+      Step 2: calls git_diff("security.py") → sees the diff
+      Step 3: calls read_file("security.py") → reads current code
+      Step 4: synthesizes answer
+    → Returns analysis to Claude Code
 ```
 
-### What Routing Buys Us
+The key value: **the local model autonomously runs a multi-step reasoning loop**, deciding what to explore at each step. This is NOT a single completion — it's 4-10 LLM round-trips with tool execution between each.
 
-| Feature | Current | With Router |
-|---------|---------|-------------|
-| Fallback on failure | None (crashes) | Automatic to next model |
-| Load balancing | N/A | Round-robin or latency-based |
-| Model tiering | Manual via CLI `-m` | Config-driven |
-| Cost/token tracking | None | Built-in callbacks |
-| Rate limiting | None | Per-model limits |
+---
 
-### The Problem: Smolagents' LiteLLMModel
+## Replacement Option A: Claude Code → Ollama Directly (ANTHROPIC_BASE_URL)
 
-**`LiteLLMModel` does not accept a `Router` instance.** It calls `litellm.completion()` directly with a `model_id` string. To use the Router, we would need to either:
-
-1. **Run LiteLLM Proxy Server** as a sidecar process (acts as OpenAI-compatible endpoint with routing built in)
-2. **Subclass `LiteLLMModel`** to call `router.completion()` instead of `litellm.completion()`
-3. **Use `litellm.set_callbacks`** for observability without full routing
-
-### Recommended: Option 2 (Custom LiteLLMModel Subclass)
-
-```python
-from smolagents import LiteLLMModel
-from litellm import Router
-
-class RoutedLiteLLMModel(LiteLLMModel):
-    """LiteLLMModel that uses Router for fallbacks and load balancing."""
-
-    def __init__(self, router: Router, model_id: str, **kwargs):
-        super().__init__(model_id=model_id, **kwargs)
-        self._router = router
-
-    def __call__(self, messages, **kwargs):
-        # Override to use router.completion instead of litellm.completion
-        response = self._router.completion(
-            model=self.model_id,
-            messages=messages,
-            **kwargs,
-        )
-        return response
-```
-
-**Caveat:** This requires inspecting `LiteLLMModel.__call__` to confirm the override is safe. The smolagents `LiteLLMModel` may do preprocessing on messages that we need to preserve.
-
-### Alternative: LiteLLM Proxy Server
+Since Ollama v0.14, it speaks the Anthropic Messages API natively:
 
 ```bash
-# config.yaml
+export ANTHROPIC_BASE_URL="http://localhost:11434"
+export ANTHROPIC_API_KEY="ollama"
+# Now Claude Code talks to local Ollama
+```
+
+### What This Replaces
+- **Everything** — Claude Code itself runs on the local model
+- Claude Code's own tools (Read, Bash, Grep, etc.) become the tools
+
+### Why This Doesn't Work as a Sub-Agent
+- This **replaces Claude**, not augments it. You lose Claude's reasoning entirely.
+- Local models (even qwen3:30b) can't reliably drive Claude Code's complex tool orchestration.
+- You want both: Claude for complex tasks, local models for cheap/private reconnaissance.
+
+### Verdict: Not a replacement. This is "run Claude Code on Ollama" not "use Ollama as a sub-agent."
+
+---
+
+## Replacement Option B: ollama-mcp (MCP Server)
+
+[ollama-mcp](https://github.com/rawveg/ollama-mcp) exposes Ollama as MCP tools:
+
+```json
+{
+  "mcpServers": {
+    "ollama": {
+      "command": "npx",
+      "args": ["-y", "ollama-mcp"]
+    }
+  }
+}
+```
+
+### Tools Exposed (14)
+- `ollama_chat` — Single chat completion (supports tool/function calling)
+- `ollama_generate` — Text completion
+- `ollama_embed` — Embeddings
+- `ollama_list`, `ollama_pull`, etc. — Model management
+
+### What This Replaces
+- Claude Code can call `ollama_chat("What does this function do?", ...)` as a tool
+- Single-shot Q&A: "summarize this file", "explain this error"
+
+### What It CANNOT Replace
+- **The agent loop.** `ollama_chat` is a single LLM call. The Ollama model cannot:
+  - Decide to call `read_file` → inspect the result → decide to call `git_diff` → synthesize
+  - There is no multi-step tool execution within the MCP call
+  - Claude Code would have to manually orchestrate: call ollama_chat → parse response → execute tool → call ollama_chat again → repeat
+
+### Verdict: Replaces single-shot delegation. Does NOT replace the autonomous agent loop.
+
+---
+
+## Replacement Option C: litellm-agent-mcp
+
+[BerriAI/litellm-agent-mcp](https://github.com/BerriAI/litellm-agent-mcp) lets Claude Code call any LLM:
+
+### Tools Exposed (7)
+- `call` — Call any LLM (OpenAI format)
+- `messages` — Anthropic Messages API
+- `generate_content` — Gemini format
+- `compare` — Compare responses from multiple models
+- `recommend` — Get model recommendation for a task
+- `models` — List available models
+
+### What This Replaces
+- Model routing: Claude Code can pick the right model per task
+- Cost optimization: Use cheap models for simple queries
+- Multi-model comparison: "Ask GPT-4 and qwen3 the same question"
+
+### What It CANNOT Replace
+- **Still single-shot completions.** No agent loop, no tool calling within the LLM call.
+- The "call" tool sends one prompt, gets one response. No iteration.
+
+### Verdict: Great for routing and model selection. Does NOT replace the agent loop.
+
+---
+
+## Replacement Option D: LiteLLM Proxy Server
+
+Run LiteLLM as a proxy with routing, fallbacks, load balancing:
+
+```yaml
+# litellm_config.yaml
 model_list:
   - model_name: local-agent
     litellm_params:
@@ -121,235 +131,150 @@ model_list:
       api_base: http://localhost:11434
   - model_name: local-agent
     litellm_params:
-      model: ollama_chat/qwen2.5:3b
+      model: ollama_chat/qwen2.5:3b  # fallback
       api_base: http://localhost:11434
-
-# Run proxy
-litellm --config config.yaml --port 4000
 ```
 
-Then point smolagents at the proxy:
+### What This Replaces
+- Model routing with automatic fallback
+- Token tracking, rate limiting, cost management
+- Unified API for cloud + local models
 
-```python
-model = LiteLLMModel(
-    model_id="openai/local-agent",
-    api_base="http://localhost:4000",
-)
-```
+### What It CANNOT Replace
+- **Still just an API proxy.** No agent loop. Callers get single completions.
 
-**Pros:** No code changes, full routing features, dashboard UI.
-**Cons:** Extra process to manage, added latency, more moving parts.
+### Verdict: Infrastructure improvement, not a functional replacement.
 
 ---
 
-## Finding 2: Smolagents Sub-Agents Work with Ollama (With Caveats)
+## Replacement Option E: Claude Code Orchestrates the Loop Itself
 
-### Current API (smolagents >= 1.8.0)
-
-The old `ManagedAgent` wrapper class was removed in v1.8.0. Now you pass agents directly with `name` and `description` attributes:
-
-```python
-from smolagents import CodeAgent, ToolCallingAgent, LiteLLMModel
-
-model = LiteLLMModel(
-    model_id="ollama_chat/qwen3:30b",
-    api_base="http://localhost:11434",
-    num_ctx=8192,
-)
-
-# Sub-agent: specialized for code search
-search_agent = CodeAgent(
-    tools=[search_code, list_definitions, read_file],
-    model=model,
-    max_steps=5,
-    name="code_search",
-    description="Searches the codebase for patterns, definitions, and file contents.",
-    code_block_tags="markdown",
-)
-
-# Sub-agent: specialized for git operations
-git_agent = CodeAgent(
-    tools=[git_diff, git_status, git_log, git_changed_files],
-    model=model,
-    max_steps=5,
-    name="git_ops",
-    description="Runs git operations: diff, status, log, changed files.",
-    code_block_tags="markdown",
-)
-
-# Manager agent: plans and delegates
-manager_agent = CodeAgent(
-    tools=[],
-    model=model,
-    managed_agents=[search_agent, git_agent],
-    code_block_tags="markdown",
-    max_steps=15,
-)
-
-result = manager_agent.run("What changed in the last commit and how does it affect security.py?")
-```
-
-### Key Constraints for Ollama Sub-Agents
-
-| Constraint | Impact | Mitigation |
-|-----------|--------|------------|
-| `code_block_tags="markdown"` needed on ALL agents | Manager + all sub-agents must use it | Set consistently in factory function |
-| Only ~43% of models support tool calling | Sub-agents may fail with weaker models | Stick to Tier 1 models (qwen3, qwen2.5:3b) |
-| Context window limits (8192 default) | Multi-agent = more context consumed | Keep sub-agent `max_steps` low (3-5) |
-| Manager must generate code to call sub-agents | Requires model that can write `code_search("query")` | qwen3:30b handles this well |
-| Each sub-agent call = full LLM round-trip | Latency compounds with multiple agents | Minimize delegation depth |
-
-### The Real Problem: Manager Quality with Local Models
-
-The manager agent must:
-1. Understand the task
-2. Decide which sub-agent to call
-3. Write Python code like `result = code_search("find security vulnerabilities")`
-4. Interpret the result
-5. Decide next steps or call `final_answer()`
-
-This requires strong reasoning and code generation. Based on model evaluation (004-model-performance-comparison.md):
-
-- **qwen3:30b** — Can likely handle manager role (Tier 1, good tool calling)
-- **qwen3:latest / qwen2.5:3b** — Better as sub-agents (smaller, faster, focused tasks)
-- **Most other models** — Not viable for multi-agent orchestration
-
-### Practical Multi-Agent Architecture for Local-Brain
+What if Claude Code manually runs the agent loop?
 
 ```
-Manager Agent (qwen3:30b, CodeAgent)
-  ├── code_search sub-agent (qwen2.5:3b, CodeAgent)
-  │     tools: search_code, list_definitions, read_file
-  ├── git_ops sub-agent (qwen2.5:3b, CodeAgent)
-  │     tools: git_diff, git_status, git_log, git_changed_files
-  └── file_explorer sub-agent (qwen2.5:3b, CodeAgent)
-        tools: read_file, list_directory, file_info
+Claude Code thinking:
+  1. Call ollama_chat("What should I look at for security.py changes?")
+  2. Ollama says: "Check git log and recent diffs"
+  3. Claude Code runs: git_log, git_diff (using its OWN tools)
+  4. Call ollama_chat("Here's the diff: {diff}. Analyze the security impact.")
+  5. Ollama returns analysis
+  6. Claude Code synthesizes final answer
 ```
 
-**Mixed-model setup** (different models for manager vs sub-agents):
+### What This Replaces
+- The entire local-brain pipeline — Claude Code IS the agent loop orchestrator
+- Claude Code already has better tools than local-brain (Read, Bash, Grep, Glob, Edit, Write)
 
-```python
-manager_model = LiteLLMModel(
-    model_id="ollama_chat/qwen3:30b",
-    api_base="http://localhost:11434",
-    num_ctx=8192,
-)
+### Problems
+- **Context window cost**: Every intermediate step consumes Claude's context (and API tokens)
+- **Latency**: Claude round-trip + Ollama round-trip at each step
+- **Defeats the purpose**: The original goal was to offload work FROM Claude to save tokens/cost
+- **Claude could just... do the task itself**: If Claude is orchestrating, why involve Ollama at all?
 
-sub_model = LiteLLMModel(
-    model_id="ollama_chat/qwen2.5:3b",
-    api_base="http://localhost:11434",
-    num_ctx=4096,
-)
+### Verdict: Technically works but defeats the purpose of local delegation.
 
-search_agent = CodeAgent(
-    tools=[search_code, list_definitions, read_file],
-    model=sub_model,
-    max_steps=5,
-    name="code_search",
-    description="Searches codebase for code patterns and definitions.",
-    code_block_tags="markdown",
-)
+---
 
-manager = CodeAgent(
-    tools=[read_file, list_directory],
-    model=manager_model,
-    managed_agents=[search_agent],
-    code_block_tags="markdown",
-)
+## The Gap: Autonomous Agent Loops
+
+Here is the core finding:
+
+| Capability | local-brain | ollama-mcp | litellm-agent-mcp | LiteLLM Proxy | Claude orchestrating |
+|-----------|-------------|------------|-------------------|---------------|---------------------|
+| Single LLM completion | Yes | Yes | Yes | Yes | Yes |
+| Multi-step agent loop | **Yes** | No | No | No | Yes (but wasteful) |
+| Tool execution within loop | **Yes (9 tools)** | No | No | No | Yes (Claude's tools) |
+| Model decides next action | **Yes** | No | No | No | Yes (but Claude decides) |
+| Runs without Claude API | **Yes** | N/A | N/A | N/A | No |
+| Cost: $0 per query | **Yes** | Yes | Yes | Yes | No |
+
+**The agent loop is what none of the off-the-shelf replacements provide.**
+
+The MCP servers (ollama-mcp, litellm-agent-mcp) expose "call a model" — a single prompt→response. Local-brain provides "give a model a task and let it autonomously explore using tools until it finds the answer" — that's the smolagents CodeAgent loop.
+
+---
+
+## What CAN Be Replaced
+
+Some parts of local-brain are genuinely replaceable:
+
+| Component | Current (local-brain) | Replacement |
+|-----------|----------------------|-------------|
+| Single-shot Q&A | Overkill (full agent loop for simple questions) | ollama-mcp `ollama_chat` |
+| Model selection | `models.py` (300 LOC) | litellm-agent-mcp `recommend` |
+| Model routing/fallback | Not implemented | LiteLLM Router or Proxy |
+| Git operations | Custom @tool functions | Claude Code native (Bash git) |
+| File reading | Custom @tool with truncation | Claude Code native (Read) |
+| Code search | Custom grep-ast integration | Claude Code native (Grep + Glob) |
+
+**The tools themselves are redundant with Claude Code's native tools.** Claude Code has Read, Grep, Glob, Bash — which are strictly better than local-brain's 9 tools.
+
+---
+
+## Recommendation
+
+### Keep local-brain for: Autonomous multi-step exploration
+
+The agent loop — where a local model independently explores the codebase across multiple steps — has no off-the-shelf replacement. This is valuable when:
+- You want to save Claude API tokens on reconnaissance tasks
+- You need privacy (code never leaves your machine)
+- You want parallel exploration (Claude works on one thing, local-brain on another)
+
+### Replace with MCP for: Simple delegation
+
+For single-shot questions ("summarize this file", "what does this function do"), an MCP server is simpler:
+- `ollama-mcp` for direct Ollama access
+- `litellm-agent-mcp` for multi-model routing
+
+### Consider for the future: Smolagents as an MCP Server
+
+The ideal replacement would be **packaging smolagents itself as an MCP server** — exposing a `run_agent(prompt, tools, model)` MCP tool that runs the full agent loop. This would:
+- Eliminate the local-brain CLI and skill wrapper
+- Keep the autonomous agent loop
+- Be usable from any MCP client (Claude Code, Cursor, etc.)
+- Allow LiteLLM routing within the agent
+
+This is essentially local-brain's `run_smolagent()` function exposed as an MCP tool instead of a CLI command.
+
+### The hybrid architecture
+
+```
+Claude Code
+  ├── ollama-mcp (simple queries, single-shot)
+  │     "Summarize this file" → ollama_chat → done
+  │
+  ├── litellm-agent-mcp (model routing, comparison)
+  │     "Which model is best for this?" → recommend → done
+  │
+  └── smolagents-mcp [NEW — replaces local-brain]
+        "Explore security.py changes" → full agent loop
+          Step 1: model calls read_file
+          Step 2: model calls git_diff
+          Step 3: model synthesizes
+        → Returns analysis
 ```
 
 ---
 
-## Finding 3: LiteLLM Routing + Sub-Agents Combined
+## Decision Needed
 
-The two features compose naturally:
+1. **Keep local-brain as-is** — it works, the agent loop has no replacement
+2. **Add ollama-mcp alongside** — for simple queries that don't need the agent loop
+3. **Evolve local-brain into an MCP server** — expose the agent loop via MCP instead of CLI/skill
+4. **Replace with Claude-does-everything** — accept the token cost, ditch local delegation
 
-```python
-from litellm import Router
-from smolagents import CodeAgent, LiteLLMModel
-
-# Router handles fallbacks per tier
-router_config = [
-    {
-        "model_name": "manager-model",
-        "litellm_params": {
-            "model": "ollama_chat/qwen3:30b",
-            "api_base": "http://localhost:11434",
-        },
-    },
-    {
-        "model_name": "manager-model",
-        "litellm_params": {
-            "model": "ollama_chat/qwen3:latest",  # fallback
-            "api_base": "http://localhost:11434",
-        },
-    },
-    {
-        "model_name": "worker-model",
-        "litellm_params": {
-            "model": "ollama_chat/qwen2.5:3b",
-            "api_base": "http://localhost:11434",
-        },
-    },
-]
-
-# Use RoutedLiteLLMModel (custom subclass) or LiteLLM Proxy
-# Then create multi-agent system as above
-```
-
----
-
-## Evaluation Summary
-
-### Can LiteLLM route Ollama models?
-
-**Yes**, via the `Router` class or LiteLLM Proxy Server. But `smolagents.LiteLLMModel` doesn't natively support `Router` — you need either a custom subclass or the proxy server approach.
-
-### Can we run sub-agents with Ollama?
-
-**Yes**, smolagents 1.23.0 supports `managed_agents` parameter directly on `CodeAgent`. The old `ManagedAgent` wrapper is gone. You pass agents directly with `name` and `description`.
-
-### What's the main blocker?
-
-**Model quality for the manager role.** The manager agent needs to reliably:
-- Parse tasks into sub-agent calls
-- Write correct Python code to invoke sub-agents
-- Handle multi-step reasoning
-
-Only `qwen3:30b` is a realistic candidate for manager. Smaller models work as focused sub-agents.
-
-### Recommended Implementation Path
-
-1. **Phase 1 — Sub-agents without routing (low effort)**
-   - Add `managed_agents` support to `create_agent()`
-   - Split current 9 tools into 2-3 focused sub-agents
-   - Use same model for all agents initially
-   - Add `--multi-agent` CLI flag
-
-2. **Phase 2 — Mixed models (medium effort)**
-   - Allow different models for manager vs sub-agents
-   - CLI: `local-brain --manager qwen3:30b --worker qwen2.5:3b "prompt"`
-   - Factory function creates multi-model agent hierarchy
-
-3. **Phase 3 — LiteLLM routing (higher effort)**
-   - Add `litellm_config.yaml` support
-   - Implement `RoutedLiteLLMModel` subclass or LiteLLM Proxy integration
-   - Automatic fallback when primary model is unavailable
-   - Token/cost tracking via LiteLLM callbacks
-
-### What NOT to Do
-
-- **Don't use `ToolCallingAgent` for sub-agents** — Ollama models need `code_block_tags="markdown"` which is only on `CodeAgent`
-- **Don't run LiteLLM Proxy for local-only use** — Too much overhead for single-machine Ollama; save it for mixed cloud+local setups
-- **Don't make all 9 tools available to every sub-agent** — The whole point of sub-agents is focused tool sets
+Options 2+3 together seem the best path: add MCP for simple queries now, evolve the agent loop into MCP over time.
 
 ---
 
 ## References
 
-- [Smolagents Multi-Agent Docs](https://huggingface.co/docs/smolagents/en/examples/multiagents)
-- [Smolagents Agent Reference](https://huggingface.co/docs/smolagents/reference/agents)
-- [LiteLLM Ollama Provider](https://docs.litellm.ai/docs/providers/ollama)
-- [LiteLLM Router/Proxy Config](https://docs.litellm.ai/docs/proxy/configs)
-- [LLM Model Routing Guide (Medium, Dec 2025)](https://medium.com/@michael.hannecke/implementing-llm-model-routing-a-practical-guide-with-ollama-and-litellm-b62c1562f50f)
-- [Smolagents ManagedAgent Removal (Issue #657)](https://github.com/huggingface/smolagents/issues/657)
+- [ollama-mcp](https://github.com/rawveg/ollama-mcp) — MCP Server exposing Ollama SDK
+- [litellm-agent-mcp](https://github.com/BerriAI/litellm-agent-mcp) — MCP Server for 100+ LLMs via LiteLLM
+- [LiteLLM MCP Docs](https://docs.litellm.ai/docs/mcp) — LiteLLM's MCP Gateway
+- [Claude Code + MCP Tutorial](https://docs.litellm.ai/docs/tutorials/claude_mcp) — Connecting MCP servers to Claude Code
+- [Connecting Claude Code to Local LLMs](https://medium.com/@michael.hannecke/connecting-claude-code-to-local-llms-two-practical-approaches-faa07f474b0f) — Two approaches (proxy vs direct)
+- [Run Claude Code with Local Models](https://medium.com/@luongnv89/run-claude-code-on-local-cloud-models-in-5-minutes-ollama-openrouter-llama-cpp-6dfeaee03cda) — Ollama v0.14+ native Anthropic API
+- [Smolagents Multi-Agent Docs](https://huggingface.co/docs/smolagents/en/examples/multiagents) — managed_agents orchestration
+- [LiteLLM Ollama Provider](https://docs.litellm.ai/docs/providers/ollama) — LiteLLM + Ollama configuration
+- [LiteLLM Router/Proxy Config](https://docs.litellm.ai/docs/proxy/configs) — Routing and fallback setup
