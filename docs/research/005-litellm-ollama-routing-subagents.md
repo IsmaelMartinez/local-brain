@@ -256,14 +256,141 @@ Claude Code
 
 ---
 
+## Option F: Wrap Smolagents as an MCP Server (The Clear Path)
+
+Instead of replacing local-brain, **re-package it as an MCP server**. The agent loop IS the value — just expose it directly to Claude Code as a tool.
+
+### What Changes
+
+```
+BEFORE (current):
+  Claude Code → /local-brain skill → Bash("local-brain 'prompt'") → CLI → smolagents → Ollama
+
+AFTER (MCP server):
+  Claude Code → MCP tool call: run_agent("prompt") → smolagents → Ollama
+```
+
+### The Implementation (~30 lines of new code)
+
+```python
+# local_brain/mcp_server.py
+from mcp.server.fastmcp import FastMCP
+
+from .smolagent import run_smolagent, create_agent
+from .models import select_model_for_task
+from .security import set_project_root
+
+server = FastMCP("local-brain")
+
+
+@server.tool()
+def run_agent(
+    prompt: str,
+    model: str | None = None,
+    project_root: str = ".",
+) -> str:
+    """Run a local Ollama model as an autonomous agent that explores the codebase.
+
+    The agent runs a multi-step reasoning loop: it reads files, searches code,
+    checks git history, and synthesizes an answer — all locally, at zero cost.
+
+    Use for: code review, exploration, understanding unfamiliar code, git analysis.
+    Don't use for: simple file reads or git commands (use native tools instead).
+
+    Args:
+        prompt: What you want the agent to explore or analyze.
+        model: Ollama model name (e.g. "qwen3:30b"). Auto-selects if not specified.
+        project_root: Project directory to explore (default: current directory).
+    """
+    set_project_root(project_root)
+    selected_model, _ = select_model_for_task(model)
+    return run_smolagent(prompt=prompt, model=selected_model)
+```
+
+### Claude Code MCP Config
+
+```json
+{
+  "mcpServers": {
+    "local-brain": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/local-brain", "python", "-m", "local_brain.mcp_server"]
+    }
+  }
+}
+```
+
+Or if published to PyPI:
+
+```json
+{
+  "mcpServers": {
+    "local-brain": {
+      "command": "uvx",
+      "args": ["local-brain-mcp"]
+    }
+  }
+}
+```
+
+### What Gets Eliminated
+
+| Component | LOC | Fate |
+|-----------|-----|------|
+| `cli.py` (Click CLI) | 303 | **Removed** — Claude Code is the UI |
+| `SKILL.md` | 303 | **Removed** — MCP tool description replaces it |
+| `plugin.json` + marketplace | ~50 | **Removed** — MCP server registration replaces it |
+| `models.py` model selection | 295 | **Simplified** — still useful for auto-select, but CLI flags gone |
+| `smolagent.py` (tools + agent) | 770 | **Kept as-is** — this is the core value |
+| `security.py` | 259 | **Kept as-is** — still needed for path jailing |
+
+From ~1700 LOC to ~1100 LOC, with the MCP server being ~30 LOC.
+
+### Why This Works
+
+1. **Claude Code already knows how to call MCP tools** — no skill/prompt engineering needed
+2. **The agent loop runs entirely inside the MCP call** — Claude sends one tool call, gets one result back
+3. **Zero Claude API tokens consumed** during the agent's exploration — only the final result enters Claude's context
+4. **smolagents handles the hard part** — multi-step reasoning, tool execution, sandboxing
+5. **LiteLLM routing can be added inside** — swap `LiteLLMModel` for a routed version, transparent to Claude
+
+### Hybrid Setup (MCP for Everything)
+
+```json
+{
+  "mcpServers": {
+    "local-brain": {
+      "command": "uvx",
+      "args": ["local-brain-mcp"],
+      "comment": "Multi-step agent loop for complex exploration"
+    },
+    "ollama": {
+      "command": "npx",
+      "args": ["-y", "ollama-mcp"],
+      "comment": "Single-shot queries — fast, no agent overhead"
+    }
+  }
+}
+```
+
+Claude Code decides which to use:
+- **Complex exploration** → `run_agent("Trace the auth flow end-to-end")`
+- **Quick question** → `ollama_chat("What does this function return?")`
+
+---
+
 ## Decision Needed
 
-1. **Keep local-brain as-is** — it works, the agent loop has no replacement
-2. **Add ollama-mcp alongside** — for simple queries that don't need the agent loop
-3. **Evolve local-brain into an MCP server** — expose the agent loop via MCP instead of CLI/skill
-4. **Replace with Claude-does-everything** — accept the token cost, ditch local delegation
+1. ~~Keep local-brain as-is~~ — CLI/skill approach works but is more plumbing than needed
+2. ~~Add ollama-mcp alongside~~ — still useful for single-shot, but doesn't replace the agent loop
+3. **Evolve local-brain into an MCP server (recommended)** — keep the agent loop, drop the CLI/skill wrapper
+4. ~~Replace with Claude-does-everything~~ — defeats the cost/privacy purpose
 
-Options 2+3 together seem the best path: add MCP for simple queries now, evolve the agent loop into MCP over time.
+**Option 3 is the clear path.** The agent loop (smolagents CodeAgent) is the unique value. Everything else is replaceable plumbing. Re-packaging as an MCP server:
+- Eliminates ~600 LOC of CLI/skill/plugin boilerplate
+- Makes the agent loop callable from any MCP client (Claude Code, Cursor, etc.)
+- Keeps zero-cost local execution
+- Opens the door to LiteLLM routing inside the agent
 
 ---
 
