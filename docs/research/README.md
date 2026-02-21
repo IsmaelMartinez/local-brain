@@ -11,6 +11,8 @@ This folder contains strategic research, analysis, and roadmap documents for the
 | [003-model-evaluation-checklist.md](./003-model-evaluation-checklist.md) | Testing framework to evaluate local models for tool-calling capability | Active |
 | [004-model-performance-comparison.md](./004-model-performance-comparison.md) | Benchmark results comparing 7 Ollama models for local-brain compatibility | Active |
 | [005-litellm-ollama-routing-subagents.md](./005-litellm-ollama-routing-subagents.md) | Evaluation of LiteLLM routing for Ollama models and smolagents sub-agent orchestration | Active |
+| [006-project-reframing.md](./006-project-reframing.md) | Honest competitive analysis of the full landscape — corrects earlier assumptions, identifies real differentiators, outlines strategic options | Active |
+| [007-rust-rewrite-plan.md](./007-rust-rewrite-plan.md) | Compiled-language alternatives to smolagents (Rust/Go framework survey, MCPHost deep-dive, concrete Rust rewrite plan using ollama-rs for single-binary distribution) | Active |
 
 ## Purpose
 
